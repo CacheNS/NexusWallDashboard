@@ -28,7 +28,9 @@ the requested behavior, constraints, or acceptance criteria change.
   fallback.
 - Identify community and official sources separately without overstating the
   precision of privacy-obfuscated sensor coordinates.
-- Refresh weather and air-quality data periodically.
+- Refresh weather and air-quality data every hour.
+- Refresh weather and air quality when the display wakes if the previous
+  request was at least 10 minutes earlier.
 - Cache the last successful weather response for offline display.
 - If Wi-Fi or DNS is unavailable during startup, keep cached data visible and
   retry weather and news after one minute without showing raw network errors.
@@ -52,6 +54,8 @@ the requested behavior, constraints, or acceptance criteria change.
   after downloading them with the official Google Photos app.
 - Copy only selected images into the dashboard's private storage.
 - Selected photos take priority and rotate once every 10 minutes.
+- Count only awake foreground time toward the 10-minute photo interval; pause
+  and preserve the remaining interval while the display is dimmed.
 - If no selected photos exist, rotate a locally provisioned cache of exactly
   100 licensed Novi Sad photos.
 - Keep the 100-photo cache in app-private storage and outside the public Git
@@ -89,11 +93,14 @@ the requested behavior, constraints, or acceptance criteria change.
 ## News
 
 - Show a one-line headline ticker.
+- Render the ticker text at a large, wall-readable size.
 - Retrieve the five newest titles from `https://www.021.rs/rss/all`.
 - Retrieve the five newest titles from `https://n1info.rs/feed/`.
 - Show the source name and one title at a time.
 - Rotate through all ten titles every ten seconds.
-- Refresh both feeds every 30 minutes.
+- Refresh both feeds every hour.
+- Refresh both feeds when the display wakes if the previous request was at
+  least 10 minutes earlier.
 - Cache the last successful headlines and continue showing them when a feed is
   temporarily unavailable.
 - Do not display article bodies, images, or advertising.

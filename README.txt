@@ -19,7 +19,8 @@ The dashboard copies only explicitly selected images into private app storage
 and ignores all other tablet photos. User-selected images take priority. If no
 user images are selected, the app uses a locally provisioned cache of 100 Novi
 Sad photos, then falls back to three images bundled with the APK. Backgrounds
-rotate every 10 minutes.
+rotate after every 10 minutes of awake display time; the rotation timer pauses
+while the dashboard is dimmed or not in the foreground.
 
 Run `tools\provision-novi-sad-photos.ps1` from the configured development PC
 to validate and transfer the machine-local `.local\novi-sad-cache` collection.
@@ -51,8 +52,9 @@ suspended.
 News
 ----
 The one-line news ticker rotates through the five newest titles from 021.rs
-and the five newest titles from N1. Feeds refresh every 30 minutes and the last
-successful set is cached for offline use.
+and the five newest titles from N1. Feeds refresh every hour and refresh when
+the display wakes if the previous request was at least 10 minutes earlier. The
+last successful set is cached for offline use.
 
 Requirements
 ------------
@@ -76,6 +78,8 @@ Open-Meteo as the final fallback.
 Community PM readings are shown immediately, but they affect European AQI only
 after the app has accumulated a sufficiently complete 24-hour average. This
 avoids treating a short low-cost-sensor sample as a regulatory AQI value.
+Weather and air-quality data refresh every hour. Waking a dimmed display also
+requests fresh data when the previous request was at least 10 minutes earlier.
 
 https://open-meteo.com/
 https://vazduh.sepa.gov.rs/

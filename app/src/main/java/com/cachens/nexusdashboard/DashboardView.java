@@ -322,18 +322,18 @@ final class DashboardView extends View {
         NewsItem item = news.items.get(index);
         float left = dp(32);
         float right = width - dp(32);
-        float top = height - dp(72);
+        float top = height - dp(88);
         float bottom = height - dp(36);
         paint.setColor(Color.argb(125, 0, 0, 0));
         newsRect.set(left, top, right, bottom);
         canvas.drawRoundRect(newsRect, dp(10), dp(10), paint);
-        float sourceWidth = dp(72);
-        drawText(canvas, item.source, left + dp(14), bottom - dp(11), sp(14),
+        float sourceWidth = dp(92);
+        drawText(canvas, item.source, left + dp(14), bottom - dp(14), sp(20),
                 Color.rgb(255, 214, 87), Paint.Align.LEFT, true);
-        paint.setTextSize(sp(15));
+        paint.setTextSize(sp(22));
         paint.setTypeface(android.graphics.Typeface.DEFAULT);
         String title = ellipsize(item.title, right - left - sourceWidth - dp(22));
-        drawText(canvas, title, left + sourceWidth, bottom - dp(11), sp(15),
+        drawText(canvas, title, left + sourceWidth, bottom - dp(14), sp(22),
                 Color.WHITE, Paint.Align.LEFT, false);
     }
 

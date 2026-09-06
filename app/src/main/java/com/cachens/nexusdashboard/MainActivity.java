@@ -16,6 +16,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.text.InputType;
 import android.util.Log;
 import android.view.View;
@@ -38,10 +39,11 @@ public final class MainActivity extends Activity implements LocationListener, Da
         MotionDetector.Listener {
     private static final int PERMISSION_REQUEST = 42;
     private static final int PHOTO_PICKER_REQUEST = 43;
-    private static final long WEATHER_REFRESH_MS = 30L * 60L * 1000L;
+    private static final long WEATHER_REFRESH_MS = 60L * 60L * 1000L;
+    private static final long WAKE_REFRESH_MIN_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long LOCATION_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long PHOTO_INTERVAL_MS = 10L * 60L * 1000L;
-    private static final long NEWS_REFRESH_MS = 30L * 60L * 1000L;
+    private static final long NEWS_REFRESH_MS = 60L * 60L * 1000L;
     private static final long NETWORK_RETRY_MS = 60L * 1000L;
     private static final long IDLE_TIMEOUT_MS = 2L * 60L * 1000L;
     private static final long IDLE_CHECK_MS = 10L * 1000L;
@@ -55,25 +57,48 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private LocationManager locationManager;
     private PhotoRepository photoRepository;
     private MotionDetector motionDetector;
-    private long lastWeatherFetchStarted;
+    private Location lastLocation;
+    private volatile long lastWeatherFetchElapsed;
+    private volatile long lastNewsFetchElapsed;
+    private volatile long lastWeatherFailureElapsed;
+    private volatile long lastNewsFailureElapsed;
     private long lastInteractionAt;
+    private long photoRotationDueAt;
+    private long photoRotationRemainingMs = 1000L;
     private boolean dimmed;
     private boolean permissionRequested;
     private boolean hasWeather;
+    private boolean photoRotationScheduled;
+    private boolean photoLoadInProgress;
+    private boolean resumed;
+    private volatile boolean destroyed;
+    private volatile boolean weatherFetchInProgress;
+    private volatile boolean newsFetchInProgress;
+    private volatile int weatherLocationRevision;
+    private volatile String activeWeatherTarget = "";
+    private volatile boolean weatherNeedsRetry;
+    private volatile boolean newsNeedsRetry;
 
     private final Runnable photoRotation = new Runnable() {
         @Override
         public void run() {
+            photoRotationScheduled = false;
+            photoRotationRemainingMs = 0;
+            if (dashboardView.getWidth() <= 0 || dashboardView.getHeight() <= 0) {
+                schedulePhotoRotation(1000L);
+                return;
+            }
             loadNextPhoto();
-            handler.postDelayed(this, PHOTO_INTERVAL_MS);
         }
     };
 
     private final Runnable newsRefresh = new Runnable() {
         @Override
         public void run() {
-            updateNews();
-            handler.postDelayed(this, NEWS_REFRESH_MS);
+            updateNews(false);
+            if (!newsFetchInProgress) {
+                scheduleNewsAfterSkippedAttempt();
+            }
         }
     };
 
@@ -90,11 +115,19 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private final Runnable weatherRetry = new Runnable() {
         @Override
         public void run() {
-            String query = manualLocation();
-            if (query.length() == 0) {
-                startLocationUpdates();
-            } else {
-                updateWeatherForPlace(query, true);
+            refreshWeather(true);
+            if (!weatherFetchInProgress) {
+                scheduleWeatherAfterSkippedAttempt();
+            }
+        }
+    };
+
+    private final Runnable weatherRefresh = new Runnable() {
+        @Override
+        public void run() {
+            refreshWeather(false);
+            if (!weatherFetchInProgress) {
+                scheduleWeatherAfterSkippedAttempt();
             }
         }
     };
@@ -102,7 +135,10 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private final Runnable newsRetry = new Runnable() {
         @Override
         public void run() {
-            updateNews();
+            updateNews(true);
+            if (!newsFetchInProgress) {
+                scheduleNewsAfterSkippedAttempt();
+            }
         }
     };
 
@@ -125,33 +161,32 @@ public final class MainActivity extends Activity implements LocationListener, Da
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         lastInteractionAt = System.currentTimeMillis();
 
-        WeatherSnapshot cachedWeather = WeatherSnapshot.load(getSharedPreferences("weather", MODE_PRIVATE));
-        if (cachedWeather != null) {
-            hasWeather = true;
-            dashboardView.setWeather(cachedWeather);
-            dashboardView.setStatus(AppText.get(this, "last_updated") + " "
-                    + DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(cachedWeather.fetchedAt)));
-        }
-        NewsSnapshot cachedNews = NewsSnapshot.load(getSharedPreferences("news", MODE_PRIVATE));
-        if (cachedNews != null) {
-            dashboardView.setNews(cachedNews);
-        }
-
-        handler.postDelayed(photoRotation, 1000L);
-        handler.post(newsRefresh);
-        handler.post(idleCheck);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        resumed = true;
+        lastInteractionAt = System.currentTimeMillis();
         enterImmersiveMode();
+        restoreCachedData();
         wakeDisplay();
         startAvailableFeatures();
+        resumeDataRefreshes();
+        resumePhotoRotation();
+        handler.removeCallbacks(idleCheck);
+        handler.postDelayed(idleCheck, IDLE_CHECK_MS);
     }
 
     @Override
     protected void onPause() {
+        resumed = false;
+        pausePhotoRotation();
+        handler.removeCallbacks(weatherRefresh);
+        handler.removeCallbacks(weatherRetry);
+        handler.removeCallbacks(newsRefresh);
+        handler.removeCallbacks(newsRetry);
+        handler.removeCallbacks(idleCheck);
         super.onPause();
         if (locationManager != null) {
             locationManager.removeUpdates(this);
@@ -163,10 +198,12 @@ public final class MainActivity extends Activity implements LocationListener, Da
 
     @Override
     protected void onDestroy() {
+        destroyed = true;
         handler.removeCallbacks(photoRotation);
         handler.removeCallbacks(newsRefresh);
         handler.removeCallbacks(idleCheck);
         handler.removeCallbacks(weatherRetry);
+        handler.removeCallbacks(weatherRefresh);
         handler.removeCallbacks(newsRetry);
         weatherExecutor.shutdownNow();
         photoExecutor.shutdownNow();
@@ -191,7 +228,6 @@ public final class MainActivity extends Activity implements LocationListener, Da
             }
         }
 
-        loadNextPhoto();
         if (hasPermission(Manifest.permission.CAMERA)) {
             motionDetector.start();
         }
@@ -222,6 +258,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
                         LOCATION_INTERVAL_MS, LOCATION_DISTANCE_METERS, this);
                 Location location = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
                 if (location != null) {
+                    lastLocation = location;
                     updateWeather(location, false);
                 }
             }
@@ -231,6 +268,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
                         LOCATION_INTERVAL_MS, LOCATION_DISTANCE_METERS, this);
                 Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                 if (location != null) {
+                    lastLocation = location;
                     updateWeather(location, false);
                 }
             }
@@ -245,64 +283,119 @@ public final class MainActivity extends Activity implements LocationListener, Da
 
     @Override
     public void onLocationChanged(Location location) {
-        updateWeather(location, true);
+        lastLocation = location;
+        updateWeather(location, false);
+    }
+
+    private void refreshWeather(boolean force) {
+        String query = manualLocation();
+        if (query.length() > 0) {
+            updateWeatherForPlace(query, force);
+        } else if (lastLocation != null) {
+            updateWeather(lastLocation, force);
+        } else {
+            startLocationUpdates();
+        }
     }
 
     private void updateWeather(final Location location, boolean force) {
-        if (!beginWeatherFetch(force)) {
+        if (destroyed || weatherExecutor.isShutdown()) {
+            return;
+        }
+        String target = String.format(Locale.US, "coordinates:%.5f,%.5f",
+                location.getLatitude(), location.getLongitude());
+        if (!beginWeatherFetch(force, target)) {
             return;
         }
         dashboardView.setStatus(AppText.get(this, "updating"));
+        final int requestRevision = weatherLocationRevision;
         weatherExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 try {
-                    showWeather(WeatherClient.fetch(location.getLatitude(), location.getLongitude()));
+                    showWeather(WeatherClient.fetch(location.getLatitude(), location.getLongitude()),
+                            requestRevision);
                 } catch (Exception error) {
-                    showWeatherError(error);
+                    showWeatherError(error, requestRevision);
                 }
             }
         });
     }
 
     private void updateWeatherForPlace(final String query, boolean force) {
-        if (!beginWeatherFetch(force)) {
+        if (destroyed || weatherExecutor.isShutdown()) {
+            return;
+        }
+        if (!beginWeatherFetch(force, "place:" + query.toLowerCase(Locale.US))) {
             return;
         }
         dashboardView.setStatus(AppText.get(this, "updating"));
+        final int requestRevision = weatherLocationRevision;
         weatherExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 try {
-                    showWeather(WeatherClient.fetchPlace(query));
+                    showWeather(WeatherClient.fetchPlace(query), requestRevision);
                 } catch (Exception error) {
-                    showWeatherError(error);
+                    showWeatherError(error, requestRevision);
                 }
             }
         });
     }
 
-    private boolean beginWeatherFetch(boolean force) {
-        long now = System.currentTimeMillis();
-        if (!force && now - lastWeatherFetchStarted < WEATHER_REFRESH_MS) {
+    private boolean beginWeatherFetch(boolean force, String target) {
+        boolean targetChanged = activeWeatherTarget.length() > 0
+                && !activeWeatherTarget.equals(target);
+        if (targetChanged) {
+            weatherLocationRevision++;
+            lastWeatherFetchElapsed = 0;
+            activeWeatherTarget = target;
+        }
+        if (weatherFetchInProgress) {
             return false;
         }
-        if (now - lastWeatherFetchStarted < 30000L) {
+        long now = SystemClock.elapsedRealtime();
+        if (!force && lastWeatherFetchElapsed > 0
+                && now - lastWeatherFetchElapsed < WEATHER_REFRESH_MS) {
             return false;
         }
-        lastWeatherFetchStarted = now;
+        if (lastWeatherFetchElapsed > 0 && now - lastWeatherFetchElapsed < 30000L) {
+            return false;
+        }
+        lastWeatherFetchElapsed = now;
+        activeWeatherTarget = target;
+        weatherFetchInProgress = true;
         return true;
     }
 
-    private void showWeather(final WeatherSnapshot result) {
-        hasWeather = true;
-        lastWeatherFetchStarted = result.fetchedAt;
-        handler.removeCallbacks(weatherRetry);
-        PmHistory.apply(result, getSharedPreferences("pm_history", MODE_PRIVATE));
-        result.save(getSharedPreferences("weather", MODE_PRIVATE));
+    private void showWeather(final WeatherSnapshot result, int requestRevision) {
+        weatherFetchInProgress = false;
+        final int completedRevision = requestRevision;
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                if (destroyed) {
+                    return;
+                }
+                if (completedRevision != weatherLocationRevision) {
+                    if (resumed) {
+                        refreshWeather(true);
+                    }
+                    return;
+                }
+                weatherNeedsRetry = false;
+                lastWeatherFailureElapsed = 0;
+                PmHistory.apply(result, getSharedPreferences("pm_history", MODE_PRIVATE));
+                result.save(getSharedPreferences("weather", MODE_PRIVATE));
+                if (!resumed) {
+                    return;
+                }
+                hasWeather = true;
+                handler.removeCallbacks(weatherRetry);
+                handler.removeCallbacks(weatherRefresh);
+                handler.postDelayed(weatherRefresh, remainingDelay(
+                        SystemClock.elapsedRealtime(), lastWeatherFetchElapsed,
+                        WEATHER_REFRESH_MS));
                 dashboardView.setWeather(result);
                 dashboardView.setStatus(AppText.get(MainActivity.this, "updated") + " "
                         + DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(result.fetchedAt)));
@@ -310,13 +403,32 @@ public final class MainActivity extends Activity implements LocationListener, Da
         });
     }
 
-    private void showWeatherError(final Exception error) {
-        lastWeatherFetchStarted = 0;
-        handler.removeCallbacks(weatherRetry);
-        handler.postDelayed(weatherRetry, NETWORK_RETRY_MS);
+    private void showWeatherError(final Exception error, int requestRevision) {
+        weatherFetchInProgress = false;
+        final int completedRevision = requestRevision;
+        final long failedAt = SystemClock.elapsedRealtime();
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                if (destroyed) {
+                    return;
+                }
+                if (completedRevision != weatherLocationRevision) {
+                    if (resumed) {
+                        refreshWeather(true);
+                    }
+                    return;
+                }
+                lastWeatherFailureElapsed = failedAt;
+                weatherNeedsRetry = true;
+                if (!resumed) {
+                    return;
+                }
+                handler.removeCallbacks(weatherRefresh);
+                handler.removeCallbacks(weatherRetry);
+                handler.postDelayed(weatherRetry, remainingDelay(
+                        SystemClock.elapsedRealtime(), lastWeatherFailureElapsed,
+                        NETWORK_RETRY_MS));
                 dashboardView.setStatus(AppText.get(MainActivity.this,
                         hasWeather ? "offline_cached" : "offline_retry"));
             }
@@ -329,18 +441,33 @@ public final class MainActivity extends Activity implements LocationListener, Da
         if (width <= 0 || height <= 0) {
             return;
         }
+        if (destroyed || photoExecutor.isShutdown() || photoLoadInProgress) {
+            return;
+        }
+        photoLoadInProgress = true;
         photoExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 final android.graphics.Bitmap bitmap = photoRepository.loadNext(width, height);
-                if (bitmap != null) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            dashboardView.setBackgroundBitmap(bitmap);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        photoLoadInProgress = false;
+                        if (bitmap == null) {
+                            if (!destroyed && resumed && !dimmed) {
+                                schedulePhotoRotation(1000L);
+                            }
+                            return;
                         }
-                    });
-                }
+                        if (destroyed || !resumed || dimmed) {
+                            bitmap.recycle();
+                            photoRotationRemainingMs = 0;
+                            return;
+                        }
+                        dashboardView.setBackgroundBitmap(bitmap);
+                        schedulePhotoRotation(PHOTO_INTERVAL_MS);
+                    }
+                });
             }
         });
     }
@@ -363,24 +490,64 @@ public final class MainActivity extends Activity implements LocationListener, Da
         });
     }
 
-    private void updateNews() {
+    private void updateNews(boolean force) {
+        if (destroyed || newsExecutor.isShutdown()) {
+            return;
+        }
+        if (newsFetchInProgress) {
+            return;
+        }
+        long now = SystemClock.elapsedRealtime();
+        if (!force && lastNewsFetchElapsed > 0
+                && now - lastNewsFetchElapsed < NEWS_REFRESH_MS) {
+            return;
+        }
+        if (lastNewsFetchElapsed > 0 && now - lastNewsFetchElapsed < 30000L) {
+            return;
+        }
+        lastNewsFetchElapsed = now;
+        newsFetchInProgress = true;
         newsExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 try {
                     final NewsSnapshot result = NewsClient.fetch();
+                    newsFetchInProgress = false;
+                    newsNeedsRetry = false;
+                    lastNewsFailureElapsed = 0;
                     result.save(getSharedPreferences("news", MODE_PRIVATE));
-                    handler.removeCallbacks(newsRetry);
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
+                            if (destroyed || !resumed) {
+                                return;
+                            }
+                            handler.removeCallbacks(newsRefresh);
+                            handler.removeCallbacks(newsRetry);
+                            handler.removeCallbacks(newsRefresh);
+                            handler.postDelayed(newsRefresh, remainingDelay(
+                                    SystemClock.elapsedRealtime(), lastNewsFetchElapsed,
+                                    NEWS_REFRESH_MS));
                             dashboardView.setNews(result);
                         }
                     });
                 } catch (Exception error) {
+                    newsFetchInProgress = false;
+                    lastNewsFailureElapsed = SystemClock.elapsedRealtime();
+                    newsNeedsRetry = true;
                     Log.e("NexusDashboard", "News update failed", error);
-                    handler.removeCallbacks(newsRetry);
-                    handler.postDelayed(newsRetry, NETWORK_RETRY_MS);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (destroyed || !resumed) {
+                                return;
+                            }
+                            handler.removeCallbacks(newsRetry);
+                            handler.postDelayed(newsRetry, remainingDelay(
+                                    SystemClock.elapsedRealtime(), lastNewsFailureElapsed,
+                                    NETWORK_RETRY_MS));
+                        }
+                    });
                 }
             }
         });
@@ -425,7 +592,9 @@ public final class MainActivity extends Activity implements LocationListener, Da
                     public void onClick(DialogInterface dialog, int which) {
                         String query = input.getText().toString().trim();
                         preferences.edit().putString("location_query", query).apply();
-                        lastWeatherFetchStarted = 0;
+                        weatherLocationRevision++;
+                        activeWeatherTarget = "";
+                        lastWeatherFetchElapsed = 0;
                         if (locationManager != null) {
                             locationManager.removeUpdates(MainActivity.this);
                         }
@@ -468,6 +637,9 @@ public final class MainActivity extends Activity implements LocationListener, Da
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        if (destroyed) {
+                            return;
+                        }
                         loadNextPhoto();
                     }
                 });
@@ -536,13 +708,16 @@ public final class MainActivity extends Activity implements LocationListener, Da
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
-                wakeDisplay();
+                if (!destroyed && resumed) {
+                    wakeDisplay();
+                }
             }
         });
     }
 
     private void dimDisplay() {
         dimmed = true;
+        pausePhotoRotation();
         dashboardView.setDimmed(true);
         WindowManager.LayoutParams parameters = getWindow().getAttributes();
         parameters.screenBrightness = 0.01f;
@@ -550,6 +725,9 @@ public final class MainActivity extends Activity implements LocationListener, Da
     }
 
     private void wakeDisplay() {
+        if (destroyed || !resumed) {
+            return;
+        }
         lastInteractionAt = System.currentTimeMillis();
         if (!dimmed) {
             return;
@@ -559,6 +737,16 @@ public final class MainActivity extends Activity implements LocationListener, Da
         WindowManager.LayoutParams parameters = getWindow().getAttributes();
         parameters.screenBrightness = 0.65f;
         getWindow().setAttributes(parameters);
+        resumePhotoRotation();
+        long now = SystemClock.elapsedRealtime();
+        if (lastWeatherFetchElapsed == 0
+                || now - lastWeatherFetchElapsed >= WAKE_REFRESH_MIN_INTERVAL_MS) {
+            refreshWeather(true);
+        }
+        if (lastNewsFetchElapsed == 0
+                || now - lastNewsFetchElapsed >= WAKE_REFRESH_MIN_INTERVAL_MS) {
+            updateNews(true);
+        }
     }
 
     private void enterImmersiveMode() {
@@ -569,5 +757,106 @@ public final class MainActivity extends Activity implements LocationListener, Da
                         | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                         | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
                         | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+    }
+
+    private void restoreCachedData() {
+        WeatherSnapshot cachedWeather = WeatherSnapshot.load(
+                getSharedPreferences("weather", MODE_PRIVATE));
+        if (cachedWeather != null) {
+            hasWeather = true;
+            dashboardView.setWeather(cachedWeather);
+            dashboardView.setStatus(AppText.get(this, "last_updated") + " "
+                    + DateFormat.getTimeInstance(DateFormat.SHORT)
+                    .format(new Date(cachedWeather.fetchedAt)));
+        }
+        NewsSnapshot cachedNews = NewsSnapshot.load(getSharedPreferences("news", MODE_PRIVATE));
+        if (cachedNews != null) {
+            dashboardView.setNews(cachedNews);
+        }
+    }
+
+    private void resumeDataRefreshes() {
+        long now = SystemClock.elapsedRealtime();
+        handler.removeCallbacks(weatherRefresh);
+        handler.removeCallbacks(weatherRetry);
+        if (weatherNeedsRetry) {
+            handler.postDelayed(weatherRetry,
+                    remainingDelay(now, lastWeatherFailureElapsed, NETWORK_RETRY_MS));
+        } else {
+            handler.postDelayed(weatherRefresh,
+                    remainingDelay(now, lastWeatherFetchElapsed, WEATHER_REFRESH_MS));
+        }
+
+        handler.removeCallbacks(newsRefresh);
+        handler.removeCallbacks(newsRetry);
+        if (newsNeedsRetry) {
+            handler.postDelayed(newsRetry,
+                    remainingDelay(now, lastNewsFailureElapsed, NETWORK_RETRY_MS));
+        } else if (lastNewsFetchElapsed == 0) {
+            handler.post(newsRefresh);
+        } else {
+            handler.postDelayed(newsRefresh,
+                    remainingDelay(now, lastNewsFetchElapsed, NEWS_REFRESH_MS));
+        }
+    }
+
+    private static long remainingDelay(long now, long lastAttempt, long interval) {
+        if (lastAttempt == 0) {
+            return 0;
+        }
+        return Math.max(0, interval - (now - lastAttempt));
+    }
+
+    private void scheduleWeatherAfterSkippedAttempt() {
+        if (destroyed || !resumed) {
+            return;
+        }
+        long now = SystemClock.elapsedRealtime();
+        long delay = weatherNeedsRetry
+                ? remainingDelay(now, lastWeatherFailureElapsed, NETWORK_RETRY_MS)
+                : remainingDelay(now, lastWeatherFetchElapsed, WEATHER_REFRESH_MS);
+        handler.postDelayed(weatherNeedsRetry ? weatherRetry : weatherRefresh,
+                delay == 0 ? NETWORK_RETRY_MS : delay);
+    }
+
+    private void scheduleNewsAfterSkippedAttempt() {
+        if (destroyed || !resumed) {
+            return;
+        }
+        long now = SystemClock.elapsedRealtime();
+        long delay = newsNeedsRetry
+                ? remainingDelay(now, lastNewsFailureElapsed, NETWORK_RETRY_MS)
+                : remainingDelay(now, lastNewsFetchElapsed, NEWS_REFRESH_MS);
+        handler.postDelayed(newsNeedsRetry ? newsRetry : newsRefresh,
+                delay == 0 ? NETWORK_RETRY_MS : delay);
+    }
+
+    private void schedulePhotoRotation(long delayMs) {
+        if (destroyed || !resumed || dimmed) {
+            photoRotationRemainingMs = Math.max(0, delayMs);
+            return;
+        }
+        handler.removeCallbacks(photoRotation);
+        photoRotationRemainingMs = Math.max(0, delayMs);
+        photoRotationDueAt = SystemClock.uptimeMillis() + photoRotationRemainingMs;
+        photoRotationScheduled = true;
+        handler.postDelayed(photoRotation, photoRotationRemainingMs);
+    }
+
+    private void pausePhotoRotation() {
+        if (!photoRotationScheduled) {
+            return;
+        }
+        photoRotationRemainingMs = Math.max(0,
+                photoRotationDueAt - SystemClock.uptimeMillis());
+        handler.removeCallbacks(photoRotation);
+        photoRotationScheduled = false;
+    }
+
+    private void resumePhotoRotation() {
+        if (!destroyed && resumed && !dimmed && !photoRotationScheduled
+                && !photoLoadInProgress) {
+            schedulePhotoRotation(photoRotationRemainingMs);
+        }
     }
 }
