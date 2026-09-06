@@ -13,7 +13,7 @@ final class MotionDetector implements Camera.PreviewCallback {
     }
 
     private static final long FRAME_INTERVAL_MS = 500L;
-    private static final long MOTION_COOLDOWN_MS = 2000L;
+    private static final long MOTION_COOLDOWN_MS = FRAME_INTERVAL_MS;
     private static final int PIXEL_STEP = 16;
     private static final int PIXEL_DIFFERENCE_THRESHOLD = 22;
     private static final float CHANGED_PIXEL_RATIO = 0.08f;

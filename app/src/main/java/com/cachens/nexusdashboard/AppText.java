@@ -70,7 +70,13 @@ final class AppText {
 
     static String formatDuration(Context context, int seconds) {
         boolean sr = isSerbian(context);
+        if (seconds == 0) {
+            return sr ? "0 - Odmah" : "0 - Immediately";
+        }
         if (seconds < 60) {
+            if (seconds == 1) {
+                return sr ? "1 sekunda" : "1 second";
+            }
             return seconds + (sr ? " sekundi" : " seconds");
         }
         int minutes = seconds / 60;

@@ -50,8 +50,9 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private static final long PHOTO_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long NEWS_REFRESH_MS = 60L * 60L * 1000L;
     private static final long NETWORK_RETRY_MS = 60L * 1000L;
-    private static final int DEFAULT_IDLE_TIMEOUT_SECONDS = 10;
-    private static final int[] IDLE_TIMEOUT_OPTIONS_SECONDS = {10, 15, 30, 60, 120, 300, 600};
+    private static final long IMMEDIATE_IDLE_TIMEOUT_MS = 750L;
+    private static final int DEFAULT_IDLE_TIMEOUT_SECONDS = 3;
+    private static final int[] IDLE_TIMEOUT_OPTIONS_SECONDS = {0, 1, 3, 5, 10, 15, 30, 60};
     private static final float LOCATION_DISTANCE_METERS = 1000f;
 
     private final ExecutorService weatherExecutor = Executors.newSingleThreadExecutor();
@@ -113,7 +114,8 @@ public final class MainActivity extends Activity implements LocationListener, Da
             if (destroyed || !resumed || dimmed) {
                 return;
             }
-            long remaining = idleTimeoutMs()
+            long timeout = idleTimeoutMs();
+            long remaining = timeout
                     - (SystemClock.uptimeMillis() - lastInteractionAt);
             if (remaining <= 0) {
                 dimDisplay();
@@ -811,7 +813,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private long idleTimeoutMs() {
         int seconds = getSharedPreferences("settings", MODE_PRIVATE).getInt(
                 "idle_timeout_seconds", DEFAULT_IDLE_TIMEOUT_SECONDS);
-        return seconds * 1000L;
+        return seconds == 0 ? IMMEDIATE_IDLE_TIMEOUT_MS : seconds * 1000L;
     }
 
     private int timeoutOptionIndex(int seconds) {
@@ -825,8 +827,9 @@ public final class MainActivity extends Activity implements LocationListener, Da
 
     private void scheduleIdleTimeout() {
         handler.removeCallbacks(idleCheck);
+        long timeout = idleTimeoutMs();
         if (!destroyed && resumed && !dimmed) {
-            handler.postDelayed(idleCheck, idleTimeoutMs());
+            handler.postDelayed(idleCheck, timeout);
         }
     }
 

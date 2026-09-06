@@ -158,10 +158,12 @@ the requested behavior, constraints, or acceptance criteria change.
 - Use the Nexus 7 front camera to detect movement.
 - Keep camera frames in volatile memory only.
 - Never save, upload, or transmit camera frames.
-- Make the inactivity period configurable in Settings with choices of 10
-  seconds, 15 seconds, 30 seconds, 1 minute, 2 minutes, 5 minutes, and 10
-  minutes.
-- Default the inactivity period to 10 seconds.
+- Make the inactivity period configurable in Settings with choices of 0, 1,
+  3, 5, 10, 15, 30, and 60 seconds.
+- Interpret 0 seconds as dimming immediately after motion stops. Allow only
+  the camera's sub-second motion-sampling grace so active movement continues
+  to keep the display awake without visible flicker.
+- Default the inactivity period to 3 seconds.
 - After the configured period without motion or touch, show a black screen at
   minimum brightness.
 - Restore the dashboard to normal brightness when movement or touch is

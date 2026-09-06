@@ -41,9 +41,10 @@ Motion wake
 The front camera performs low-resolution, in-memory motion detection. After
 the configured period without motion or touch, the dashboard becomes black
 and lowers screen brightness to the minimum. The timeout is selected in
-Settings and defaults to 10 seconds; available choices range from 10 seconds
-to 10 minutes. Motion or a touch restores normal brightness. Camera frames
-are never saved or transmitted.
+Settings and defaults to 3 seconds. Available choices are 0, 1, 3, 5, 10, 15,
+30, or 60 seconds. The `0 - Immediately` choice dims as soon as the camera's
+next motion-sampling interval confirms that movement has stopped. Motion or a
+touch restores normal brightness. Camera frames are never saved or transmitted.
 
 The display is dimmed rather than put into hardware sleep because Android
 cannot reliably keep camera motion detection running while the app is
