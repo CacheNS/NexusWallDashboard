@@ -14,6 +14,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.text.InputType;
 import android.util.Log;
@@ -39,7 +40,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private static final int PHOTO_PICKER_REQUEST = 43;
     private static final long WEATHER_REFRESH_MS = 30L * 60L * 1000L;
     private static final long LOCATION_INTERVAL_MS = 10L * 60L * 1000L;
-    private static final long PHOTO_INTERVAL_MS = 60L * 1000L;
+    private static final long PHOTO_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long NEWS_REFRESH_MS = 30L * 60L * 1000L;
     private static final long NETWORK_RETRY_MS = 60L * 1000L;
     private static final long IDLE_TIMEOUT_MS = 2L * 60L * 1000L;
@@ -119,6 +120,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         LegacyTls.initialize(this);
 
         photoRepository = new PhotoRepository(this);
+        importStagedPhotoCache();
         motionDetector = new MotionDetector(this);
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         lastInteractionAt = System.currentTimeMillis();
@@ -296,6 +298,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         hasWeather = true;
         lastWeatherFetchStarted = result.fetchedAt;
         handler.removeCallbacks(weatherRetry);
+        PmHistory.apply(result, getSharedPreferences("pm_history", MODE_PRIVATE));
         result.save(getSharedPreferences("weather", MODE_PRIVATE));
         runOnUiThread(new Runnable() {
             @Override
@@ -337,6 +340,24 @@ public final class MainActivity extends Activity implements LocationListener, Da
                             dashboardView.setBackgroundBitmap(bitmap);
                         }
                     });
+                }
+            }
+        });
+    }
+
+    private void importStagedPhotoCache() {
+        photoExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                File staging = new File(Environment.getExternalStorageDirectory(),
+                        "NexusWallDashboard/city-cache");
+                try {
+                    if (photoRepository.importStagedCityCache(staging)) {
+                        Log.i("NexusDashboard", "Imported "
+                                + photoRepository.cityPhotoCount() + " Novi Sad photos");
+                    }
+                } catch (Exception error) {
+                    Log.e("NexusDashboard", "Could not import Novi Sad photo cache", error);
                 }
             }
         });

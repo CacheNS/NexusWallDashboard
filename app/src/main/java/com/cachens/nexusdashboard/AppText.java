@@ -65,6 +65,9 @@ final class AppText {
         if ("save".equals(key)) return sr ? "Sačuvaj" : "Save";
         if ("cancel".equals(key)) return sr ? "Otkaži" : "Cancel";
         if ("photos".equals(key)) return sr ? "IZABERI FOTOGRAFIJE" : "SELECT PHOTOS";
+        if ("local_pm".equals(key)) return sr ? "PM lokalni senzor Telep" : "PM local Telep sensor";
+        if ("local_pm_generic".equals(key)) return sr ? "PM lokalni senzor" : "PM local sensor";
+        if ("sepa".equals(key)) return "SEPA";
         return key;
     }
 

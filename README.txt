@@ -15,10 +15,18 @@ album "Natasa, Dusan & 2 others". If the old Android picker cannot browse
 Google Photos directly, first download the chosen images with the official
 Google Photos app and then select the downloaded files.
 
-The dashboard copies only explicitly selected images into private app storage,
-ignores all other tablet photos, and rotates the selection once per minute. If
-no image has been selected, bundled freely licensed photos of Novi Sad are
-displayed. See ATTRIBUTIONS.txt for image credits.
+The dashboard copies only explicitly selected images into private app storage
+and ignores all other tablet photos. User-selected images take priority. If no
+user images are selected, the app uses a locally provisioned cache of 100 Novi
+Sad photos, then falls back to three images bundled with the APK. Backgrounds
+rotate every 10 minutes.
+
+Run `tools\provision-novi-sad-photos.ps1` from the configured development PC
+to validate and transfer the machine-local `.local\novi-sad-cache` collection.
+The app imports the staged files atomically into private storage at startup.
+The cache survives `adb install -r`, but must be reprovisioned after uninstall
+or a signing-key change. See ATTRIBUTIONS.txt and the cache's generated
+ATTRIBUTIONS.txt for image credits.
 
 Language and location
 ---------------------
@@ -59,11 +67,19 @@ apps disabled during setup.
 Data source
 -----------
 Weather and fallback modeled air-quality data are retrieved from Open-Meteo.
-When an official Serbian Environmental Protection Agency (SEPA) monitoring
-station with current particle measurements is within 30 km, the dashboard
-uses the nearest station and shows its name and distance:
+For Novi Sad, AQI coordinates are centered on Telep. The dashboard prefers a
+recent outdoor Sensor.Community monitor in the Telep area for indicative local
+PM2.5 and PM10 readings. It retains the nearest official Serbian Environmental
+Protection Agency (SEPA) station for regulatory measurements and gases, with
+Open-Meteo as the final fallback.
+
+Community PM readings are shown immediately, but they affect European AQI only
+after the app has accumulated a sufficiently complete 24-hour average. This
+avoids treating a short low-cost-sensor sample as a regulatory AQI value.
+
 https://open-meteo.com/
 https://vazduh.sepa.gov.rs/
+https://sensor.community/
 
 Build
 -----

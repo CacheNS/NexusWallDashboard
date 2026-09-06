@@ -4,6 +4,10 @@ Bundled Novi Sad fallback photographs
 The application shows these images only when the tablet has no locally stored
 photos. Images downloaded to the tablet take priority.
 
+The separately provisioned 100-photo Novi Sad cache has its own generated
+ATTRIBUTIONS.txt and manifest.json in the local cache and on the tablet. Those
+image binaries are intentionally not distributed through this repository.
+
 1. Petrovaradin Fortress II, Novi Sad, Serbia 14.09.2016
    Author: Zeljko511
    License: Creative Commons Attribution-ShareAlike 4.0

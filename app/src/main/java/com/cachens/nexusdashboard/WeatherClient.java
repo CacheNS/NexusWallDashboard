@@ -18,6 +18,8 @@ import java.util.Locale;
 final class WeatherClient {
     private static final String SEPA_URL = "https://vazduh.sepa.gov.rs/?view=desktop";
     private static final double MAX_SEPA_DISTANCE_KM = 30.0;
+    private static final double TELEP_LATITUDE = 45.238;
+    private static final double TELEP_LONGITUDE = 19.803;
 
     private WeatherClient() {
     }
@@ -32,13 +34,20 @@ final class WeatherClient {
     }
 
     private static WeatherSnapshot fetch(double latitude, double longitude, String locationName) throws Exception {
-        String coordinates = String.format(Locale.US, "latitude=%.5f&longitude=%.5f", latitude, longitude);
-        String forecastUrl = "https://api.open-meteo.com/v1/forecast?" + coordinates
+        String forecastCoordinates = String.format(Locale.US, "latitude=%.5f&longitude=%.5f",
+                latitude, longitude);
+        boolean noviSad = locationName.toLowerCase(Locale.US).contains("novi sad")
+                || distanceKm(latitude, longitude, TELEP_LATITUDE, TELEP_LONGITUDE) <= 3;
+        double airLatitude = noviSad ? TELEP_LATITUDE : latitude;
+        double airLongitude = noviSad ? TELEP_LONGITUDE : longitude;
+        String airCoordinates = String.format(Locale.US, "latitude=%.5f&longitude=%.5f",
+                airLatitude, airLongitude);
+        String forecastUrl = "https://api.open-meteo.com/v1/forecast?" + forecastCoordinates
                 + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m"
                 + "&daily=weather_code,temperature_2m_max,temperature_2m_min"
                 + "&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto&forecast_days="
                 + WeatherSnapshot.FORECAST_DAYS;
-        String airUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?" + coordinates
+        String airUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?" + airCoordinates
                 + "&current=european_aqi,pm10,pm2_5,nitrogen_dioxide,ozone&timezone=auto";
 
         JSONObject forecast = new JSONObject(readUrl(forecastUrl));
@@ -48,8 +57,8 @@ final class WeatherClient {
         JSONObject daily = forecast.getJSONObject("daily");
 
         WeatherSnapshot result = new WeatherSnapshot();
-        result.latitude = latitude;
-        result.longitude = longitude;
+        result.latitude = airLatitude;
+        result.longitude = airLongitude;
         result.locationName = locationName;
         result.fetchedAt = System.currentTimeMillis();
         result.temperature = current.optDouble("temperature_2m", Double.NaN);
@@ -64,6 +73,11 @@ final class WeatherClient {
         result.pm10 = currentAir.optDouble("pm10", Double.NaN);
         result.nitrogenDioxide = currentAir.optDouble("nitrogen_dioxide", Double.NaN);
         result.ozone = currentAir.optDouble("ozone", Double.NaN);
+        result.referencePm25 = result.pm25;
+        result.referencePm10 = result.pm10;
+        result.localPm25 = Double.NaN;
+        result.localPm10 = Double.NaN;
+        result.localPmDistanceKm = Double.NaN;
         result.aqiSource = "Open-Meteo";
         result.aqiDistanceKm = Double.NaN;
 
@@ -73,6 +87,15 @@ final class WeatherClient {
             Log.w("NexusDashboard", "SEPA station data unavailable; using Open-Meteo AQI", error);
         } catch (JSONException error) {
             Log.w("NexusDashboard", "SEPA station data invalid; using Open-Meteo AQI", error);
+        }
+        result.referencePm25 = result.pm25;
+        result.referencePm10 = result.pm10;
+        try {
+            SensorCommunityClient.applyNearest(result, result.aqiDistanceKm, noviSad);
+        } catch (IOException error) {
+            Log.w("NexusDashboard", "Local PM data unavailable; using official/model PM", error);
+        } catch (JSONException error) {
+            Log.w("NexusDashboard", "Local PM data invalid; using official/model PM", error);
         }
 
         JSONArray dates = daily.getJSONArray("time");
@@ -127,7 +150,7 @@ final class WeatherClient {
         double no2 = componentValue(components, "NO2");
         double ozone = componentValue(components, "O3");
         double sulphurDioxide = componentValue(components, "SO2");
-        double stationAqi = calculateEuropeanAqi(pm25, pm10, no2, ozone, sulphurDioxide);
+        double stationAqi = EuropeanAqi.fromPollutants(pm25, pm10, no2, ozone, sulphurDioxide);
         if (Double.isNaN(stationAqi)) {
             return;
         }
@@ -157,47 +180,6 @@ final class WeatherClient {
             }
         }
         return Double.NaN;
-    }
-
-    private static double calculateEuropeanAqi(double pm25, double pm10, double no2, double ozone,
-                                                double sulphurDioxide) {
-        double result = Double.NaN;
-        result = maxAvailable(result, pollutantAqi(pm25, new double[]{10, 20, 25, 50, 75}));
-        result = maxAvailable(result, pollutantAqi(pm10, new double[]{20, 40, 50, 100, 150}));
-        result = maxAvailable(result, pollutantAqi(no2, new double[]{40, 90, 120, 230, 340}));
-        result = maxAvailable(result, pollutantAqi(ozone, new double[]{50, 100, 130, 240, 380}));
-        result = maxAvailable(result, pollutantAqi(sulphurDioxide, new double[]{100, 200, 350, 500, 750}));
-        return result;
-    }
-
-    private static double pollutantAqi(double concentration, double[] thresholds) {
-        if (Double.isNaN(concentration)) {
-            return Double.NaN;
-        }
-        double lowerConcentration = 0;
-        double lowerIndex = 0;
-        for (int i = 0; i < thresholds.length; i++) {
-            double upperConcentration = thresholds[i];
-            double upperIndex = (i + 1) * 20;
-            if (concentration <= upperConcentration) {
-                return lowerIndex + (concentration - lowerConcentration)
-                        * (upperIndex - lowerIndex) / (upperConcentration - lowerConcentration);
-            }
-            lowerConcentration = upperConcentration;
-            lowerIndex = upperIndex;
-        }
-        double finalBand = thresholds[thresholds.length - 1] - thresholds[thresholds.length - 2];
-        return Math.min(500, 100 + (concentration - thresholds[thresholds.length - 1]) * 20 / finalBand);
-    }
-
-    private static double maxAvailable(double first, double second) {
-        if (Double.isNaN(first)) {
-            return second;
-        }
-        if (Double.isNaN(second)) {
-            return first;
-        }
-        return Math.max(first, second);
     }
 
     private static double distanceKm(double latitude1, double longitude1,
@@ -231,7 +213,7 @@ final class WeatherClient {
         return new ResolvedLocation(name, first.getDouble("latitude"), first.getDouble("longitude"));
     }
 
-    private static String readUrl(String address) throws IOException {
+    static String readUrl(String address) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         LegacyTls.configure(connection);
         connection.setConnectTimeout(15000);

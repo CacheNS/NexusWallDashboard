@@ -19,6 +19,16 @@ final class WeatherSnapshot {
     double ozone;
     String aqiSource;
     double aqiDistanceKm;
+    double referencePm25;
+    double referencePm10;
+    double localPm25;
+    double localPm10;
+    String localPmSource;
+    long localPmLocationId;
+    long localPmObservedAt;
+    double localPmDistanceKm;
+    boolean localPmApproximateLocation;
+    boolean localPmAqiReady;
     double latitude;
     double longitude;
     String locationName;
@@ -45,6 +55,16 @@ final class WeatherSnapshot {
                 .putLong("ozone", Double.doubleToRawLongBits(ozone))
                 .putString("aqiSource", aqiSource)
                 .putLong("aqiDistanceKm", Double.doubleToRawLongBits(aqiDistanceKm))
+                .putLong("referencePm25", Double.doubleToRawLongBits(referencePm25))
+                .putLong("referencePm10", Double.doubleToRawLongBits(referencePm10))
+                .putLong("localPm25", Double.doubleToRawLongBits(localPm25))
+                .putLong("localPm10", Double.doubleToRawLongBits(localPm10))
+                .putString("localPmSource", localPmSource)
+                .putLong("localPmLocationId", localPmLocationId)
+                .putLong("localPmObservedAt", localPmObservedAt)
+                .putLong("localPmDistanceKm", Double.doubleToRawLongBits(localPmDistanceKm))
+                .putBoolean("localPmApproximateLocation", localPmApproximateLocation)
+                .putBoolean("localPmAqiReady", localPmAqiReady)
                 .putLong("latitude", Double.doubleToRawLongBits(latitude))
                 .putLong("longitude", Double.doubleToRawLongBits(longitude))
                 .putString("locationName", locationName);
@@ -77,6 +97,16 @@ final class WeatherSnapshot {
         result.ozone = readDouble(preferences, "ozone");
         result.aqiSource = preferences.getString("aqiSource", "");
         result.aqiDistanceKm = readDouble(preferences, "aqiDistanceKm");
+        result.referencePm25 = readDouble(preferences, "referencePm25");
+        result.referencePm10 = readDouble(preferences, "referencePm10");
+        result.localPm25 = readDouble(preferences, "localPm25");
+        result.localPm10 = readDouble(preferences, "localPm10");
+        result.localPmSource = preferences.getString("localPmSource", "");
+        result.localPmLocationId = preferences.getLong("localPmLocationId", 0);
+        result.localPmObservedAt = preferences.getLong("localPmObservedAt", 0);
+        result.localPmDistanceKm = readDouble(preferences, "localPmDistanceKm");
+        result.localPmApproximateLocation = preferences.getBoolean("localPmApproximateLocation", false);
+        result.localPmAqiReady = preferences.getBoolean("localPmAqiReady", false);
         result.latitude = readDouble(preferences, "latitude");
         result.longitude = readDouble(preferences, "longitude");
         result.locationName = preferences.getString("locationName", "");

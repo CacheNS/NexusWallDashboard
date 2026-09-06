@@ -192,10 +192,12 @@ final class DashboardView extends View {
                 Color.argb(225, 255, 255, 255), Paint.Align.LEFT, false);
         drawText(canvas, "NO2    " + number(weather.nitrogenDioxide), right - dp(150), top + dp(264), sp(14),
                 Color.argb(225, 255, 255, 255), Paint.Align.LEFT, false);
-        if (weather.aqiSource != null && weather.aqiSource.startsWith("Novi Sad ")) {
-            String station = weather.aqiSource.substring("Novi Sad ".length());
-            drawText(canvas, "SEPA " + station + "  " + distance(weather.aqiDistanceKm),
-                    right - dp(150), top + dp(289), sp(11),
+        String source = aqiSourceLabel();
+        if (source.length() > 0) {
+            paint.setTextSize(sp(10));
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            source = ellipsize(source, dp(205));
+            drawText(canvas, source, right - dp(205), top + dp(289), sp(10),
                     Color.argb(205, 255, 255, 255), Paint.Align.LEFT, false);
         }
     }
@@ -389,8 +391,21 @@ final class DashboardView extends View {
         return Double.isNaN(value) ? "--" : String.format(Locale.getDefault(), "%.0f", value);
     }
 
-    private static String distance(double value) {
-        return Double.isNaN(value) ? "" : String.format(Locale.getDefault(), "%.1f km", value);
+    private String aqiSourceLabel() {
+        StringBuilder result = new StringBuilder();
+        if (weather.localPmSource != null && weather.localPmSource.length() > 0) {
+            result.append(AppText.get(context,
+                    "Sensor.Community Telep".equals(weather.localPmSource)
+                            ? "local_pm" : "local_pm_generic"));
+        }
+        if (weather.aqiSource != null && weather.aqiSource.startsWith("Novi Sad ")) {
+            if (result.length() > 0) {
+                result.append(" · ");
+            }
+            result.append(AppText.get(context, "sepa")).append(' ')
+                    .append(weather.aqiSource.substring("Novi Sad ".length()));
+        }
+        return result.toString();
     }
 
     private static int aqiColor(double value) {

@@ -17,9 +17,17 @@ the requested behavior, constraints, or acceptance criteria change.
 - Show current weather and a five-day forecast in metric units.
 - Show a small condition icon beside each forecast day's weather text.
 - Show European AQI plus PM2.5, PM10, and NO2 values.
-- Prefer measurements from the nearest official SEPA station within 30 km,
-  show its name and distance, and fall back to coordinate-based Open-Meteo
-  air-quality data when station data is unavailable.
+- For Novi Sad, use Telep coordinates for air-quality source selection while
+  retaining city-wide weather geocoding.
+- Prefer a recent valid outdoor Sensor.Community monitor that is closer to
+  Telep than the nearest available SEPA station for indicative PM2.5 and PM10.
+- Use a persisted 24-hour community-PM average before allowing those readings
+  to affect the European AQI value.
+- Retain the nearest official SEPA station for regulatory measurements and
+  gaseous pollutants, and use coordinate-based Open-Meteo data as the final
+  fallback.
+- Identify community and official sources separately without overstating the
+  precision of privacy-obfuscated sensor coordinates.
 - Refresh weather and air-quality data periodically.
 - Cache the last successful weather response for offline display.
 - If Wi-Fi or DNS is unavailable during startup, keep cached data visible and
@@ -43,8 +51,14 @@ the requested behavior, constraints, or acceptance criteria change.
   either directly from the official Google Photos provider when available or
   after downloading them with the official Google Photos app.
 - Copy only selected images into the dashboard's private storage.
-- Selected photos take priority and rotate once per minute.
-- If no local photos exist, rotate bundled freely licensed photos of Novi Sad.
+- Selected photos take priority and rotate once every 10 minutes.
+- If no selected photos exist, rotate a locally provisioned cache of exactly
+  100 licensed Novi Sad photos.
+- Keep the 100-photo cache in app-private storage and outside the public Git
+  repository and APK.
+- Import a staged city cache atomically so a damaged or interrupted transfer
+  cannot replace the last complete cache.
+- If no city cache exists, rotate the bundled freely licensed Novi Sad photos.
 - Keep source and license details for bundled images in `ATTRIBUTIONS.txt`.
 
 ## Language
