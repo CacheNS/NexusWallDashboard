@@ -1,0 +1,20 @@
+Bundled Novi Sad fallback photographs
+======================================
+
+The application shows these images only when the tablet has no locally stored
+photos. Images downloaded to the tablet take priority.
+
+1. Petrovaradin Fortress II, Novi Sad, Serbia 14.09.2016
+   Author: Zeljko511
+   License: Creative Commons Attribution-ShareAlike 4.0
+   Source: https://commons.wikimedia.org/wiki/File:Petrovaradin_Fortress_II,_Novi_Sad,_Serbia_14.09.2016.jpg
+
+2. Freedom Square, Novi Sad 1
+   Author: Vacant0
+   License: Creative Commons Attribution-ShareAlike 4.0
+   Source: https://commons.wikimedia.org/wiki/File:Freedom_Square,_Novi_Sad_1.jpg
+
+3. Dunavska 1 in Novi Sad (1)
+   Author: Tournasol7
+   License: Creative Commons Attribution 4.0
+   Source: https://commons.wikimedia.org/wiki/File:Dunavska_1_in_Novi_Sad_(1).jpg
