@@ -3,6 +3,8 @@ package com.cachens.nexusdashboard;
 import android.content.SharedPreferences;
 
 final class WeatherSnapshot {
+    static final int FORECAST_DAYS = 5;
+
     double temperature;
     double apparentTemperature;
     double humidity;
@@ -15,14 +17,16 @@ final class WeatherSnapshot {
     double pm10;
     double nitrogenDioxide;
     double ozone;
+    String aqiSource;
+    double aqiDistanceKm;
     double latitude;
     double longitude;
     String locationName;
     long fetchedAt;
-    final double[] dailyHigh = new double[3];
-    final double[] dailyLow = new double[3];
-    final int[] dailyCode = new int[3];
-    final String[] dailyDate = new String[3];
+    final double[] dailyHigh = new double[FORECAST_DAYS];
+    final double[] dailyLow = new double[FORECAST_DAYS];
+    final int[] dailyCode = new int[FORECAST_DAYS];
+    final String[] dailyDate = new String[FORECAST_DAYS];
 
     void save(SharedPreferences preferences) {
         SharedPreferences.Editor editor = preferences.edit()
@@ -39,10 +43,12 @@ final class WeatherSnapshot {
                 .putLong("pm10", Double.doubleToRawLongBits(pm10))
                 .putLong("nitrogenDioxide", Double.doubleToRawLongBits(nitrogenDioxide))
                 .putLong("ozone", Double.doubleToRawLongBits(ozone))
+                .putString("aqiSource", aqiSource)
+                .putLong("aqiDistanceKm", Double.doubleToRawLongBits(aqiDistanceKm))
                 .putLong("latitude", Double.doubleToRawLongBits(latitude))
                 .putLong("longitude", Double.doubleToRawLongBits(longitude))
                 .putString("locationName", locationName);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < FORECAST_DAYS; i++) {
             editor.putLong("dailyHigh" + i, Double.doubleToRawLongBits(dailyHigh[i]));
             editor.putLong("dailyLow" + i, Double.doubleToRawLongBits(dailyLow[i]));
             editor.putInt("dailyCode" + i, dailyCode[i]);
@@ -69,10 +75,12 @@ final class WeatherSnapshot {
         result.pm10 = readDouble(preferences, "pm10");
         result.nitrogenDioxide = readDouble(preferences, "nitrogenDioxide");
         result.ozone = readDouble(preferences, "ozone");
+        result.aqiSource = preferences.getString("aqiSource", "");
+        result.aqiDistanceKm = readDouble(preferences, "aqiDistanceKm");
         result.latitude = readDouble(preferences, "latitude");
         result.longitude = readDouble(preferences, "longitude");
         result.locationName = preferences.getString("locationName", "");
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < FORECAST_DAYS; i++) {
             result.dailyHigh[i] = readDouble(preferences, "dailyHigh" + i);
             result.dailyLow[i] = readDouble(preferences, "dailyLow" + i);
             result.dailyCode[i] = preferences.getInt("dailyCode" + i, 0);

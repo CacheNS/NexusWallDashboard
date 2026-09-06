@@ -4,7 +4,7 @@ Nexus Wall Dashboard
 Purpose
 -------
 A lightweight, landscape Android dashboard for the Nexus 7 (2012). It shows
-time, date, weather, a three-day forecast, European AQI, and a rotating
+time, date, weather, a five-day forecast, European AQI, and a rotating
 background of photos stored locally on the tablet. It does not access Google
 Photos or any Google account data.
 
@@ -58,8 +58,12 @@ apps disabled during setup.
 
 Data source
 -----------
-Weather and air-quality data are retrieved directly from Open-Meteo:
+Weather and fallback modeled air-quality data are retrieved from Open-Meteo.
+When an official Serbian Environmental Protection Agency (SEPA) monitoring
+station with current particle measurements is within 30 km, the dashboard
+uses the nearest station and shows its name and distance:
 https://open-meteo.com/
+https://vazduh.sepa.gov.rs/
 
 Build
 -----

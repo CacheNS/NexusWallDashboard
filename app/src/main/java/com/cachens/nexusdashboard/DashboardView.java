@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.view.MotionEvent;
@@ -29,6 +30,7 @@ final class DashboardView extends View {
     private final RectF cardRect = new RectF();
     private final RectF bitmapRect = new RectF();
     private final RectF newsRect = new RectF();
+    private final Path iconPath = new Path();
     private final Date currentDate = new Date();
     private final Calendar currentCalendar = Calendar.getInstance();
     private final SimpleDateFormat clockFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
@@ -190,21 +192,124 @@ final class DashboardView extends View {
                 Color.argb(225, 255, 255, 255), Paint.Align.LEFT, false);
         drawText(canvas, "NO2    " + number(weather.nitrogenDioxide), right - dp(150), top + dp(264), sp(14),
                 Color.argb(225, 255, 255, 255), Paint.Align.LEFT, false);
+        if (weather.aqiSource != null && weather.aqiSource.startsWith("Novi Sad ")) {
+            String station = weather.aqiSource.substring("Novi Sad ".length());
+            drawText(canvas, "SEPA " + station + "  " + distance(weather.aqiDistanceKm),
+                    right - dp(150), top + dp(289), sp(11),
+                    Color.argb(205, 255, 255, 255), Paint.Align.LEFT, false);
+        }
     }
 
     private void drawForecast(Canvas canvas, int width, int height) {
         float left = dp(35);
         float top = height - dp(145);
         float available = width - dp(70);
-        float column = available / 3f;
-        for (int i = 0; i < 3; i++) {
+        float column = available / WeatherSnapshot.FORECAST_DAYS;
+        for (int i = 0; i < WeatherSnapshot.FORECAST_DAYS; i++) {
             float x = left + column * i + column / 2f;
             drawText(canvas, formatDay(weather.dailyDate[i], i), x, top, sp(16), Color.WHITE, Paint.Align.CENTER, true);
-            drawText(canvas, AppText.condition(context, weather.dailyCode[i]), x, top + dp(25), sp(14),
-                    Color.argb(225, 255, 255, 255), Paint.Align.CENTER, false);
+            String condition = AppText.condition(context, weather.dailyCode[i]);
+            paint.setTextSize(sp(14));
+            paint.setTypeface(android.graphics.Typeface.DEFAULT);
+            float iconSize = dp(18);
+            float gap = dp(7);
+            float totalWidth = iconSize + gap + paint.measureText(condition);
+            float start = x - totalWidth / 2f;
+            drawWeatherIcon(canvas, weather.dailyCode[i], start + iconSize / 2f, top + dp(23), iconSize);
+            drawText(canvas, condition, start + iconSize + gap, top + dp(28), sp(14),
+                    Color.argb(225, 255, 255, 255), Paint.Align.LEFT, false);
             drawText(canvas, number(weather.dailyHigh[i]) + " / " + number(weather.dailyLow[i]) + " C",
-                    x, top + dp(49), sp(15), Color.WHITE, Paint.Align.CENTER, false);
+                    x, top + dp(53), sp(15), Color.WHITE, Paint.Align.CENTER, false);
         }
+    }
+
+    private void drawWeatherIcon(Canvas canvas, int code, float x, float y, float size) {
+        paint.setShader(null);
+        paint.setStrokeWidth(Math.max(dp(1.4f), size * 0.09f));
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(Color.WHITE);
+
+        if (code == 0) {
+            drawSun(canvas, x, y, size);
+        } else if (code == 1 || code == 2) {
+            drawSun(canvas, x - size * 0.18f, y - size * 0.15f, size * 0.65f);
+            drawCloud(canvas, x + size * 0.08f, y + size * 0.08f, size * 0.8f);
+        } else if (code == 3) {
+            drawCloud(canvas, x, y, size);
+        } else if (code == 45 || code == 48) {
+            for (int i = -1; i <= 1; i++) {
+                canvas.drawLine(x - size * 0.45f, y + i * size * 0.24f,
+                        x + size * 0.45f, y + i * size * 0.24f, paint);
+            }
+        } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
+            drawCloud(canvas, x, y - size * 0.12f, size * 0.82f);
+            for (int i = -1; i <= 1; i++) {
+                float dropX = x + i * size * 0.28f;
+                canvas.drawLine(dropX, y + size * 0.22f, dropX - size * 0.08f,
+                        y + size * 0.48f, paint);
+            }
+        } else if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) {
+            drawCloud(canvas, x, y - size * 0.12f, size * 0.82f);
+            for (int i = -1; i <= 1; i++) {
+                float snowX = x + i * size * 0.28f;
+                float snowY = y + size * 0.37f;
+                canvas.drawLine(snowX - size * 0.08f, snowY, snowX + size * 0.08f, snowY, paint);
+                canvas.drawLine(snowX, snowY - size * 0.08f, snowX, snowY + size * 0.08f, paint);
+            }
+        } else if (code >= 95) {
+            drawCloud(canvas, x, y - size * 0.12f, size * 0.82f);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(Color.rgb(255, 214, 87));
+            iconPath.reset();
+            iconPath.moveTo(x + size * 0.05f, y + size * 0.12f);
+            iconPath.lineTo(x - size * 0.14f, y + size * 0.42f);
+            iconPath.lineTo(x + size * 0.02f, y + size * 0.40f);
+            iconPath.lineTo(x - size * 0.10f, y + size * 0.62f);
+            iconPath.lineTo(x + size * 0.25f, y + size * 0.30f);
+            iconPath.lineTo(x + size * 0.08f, y + size * 0.32f);
+            iconPath.close();
+            canvas.drawPath(iconPath, paint);
+        } else {
+            drawCloud(canvas, x, y, size);
+        }
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawSun(Canvas canvas, float x, float y, float size) {
+        paint.setColor(Color.rgb(255, 214, 87));
+        paint.setStyle(Paint.Style.STROKE);
+        float radius = size * 0.22f;
+        canvas.drawCircle(x, y, radius, paint);
+        for (int i = 0; i < 8; i++) {
+            double angle = Math.PI * i / 4.0;
+            float inner = size * 0.34f;
+            float outer = size * 0.48f;
+            canvas.drawLine(
+                    x + (float) Math.cos(angle) * inner,
+                    y + (float) Math.sin(angle) * inner,
+                    x + (float) Math.cos(angle) * outer,
+                    y + (float) Math.sin(angle) * outer,
+                    paint);
+        }
+    }
+
+    private void drawCloud(Canvas canvas, float x, float y, float size) {
+        paint.setColor(Color.WHITE);
+        paint.setStyle(Paint.Style.STROKE);
+        iconPath.reset();
+        iconPath.moveTo(x - size * 0.42f, y + size * 0.20f);
+        iconPath.cubicTo(x - size * 0.55f, y - size * 0.02f,
+                x - size * 0.30f, y - size * 0.18f,
+                x - size * 0.14f, y - size * 0.10f);
+        iconPath.cubicTo(x - size * 0.02f, y - size * 0.42f,
+                x + size * 0.38f, y - size * 0.30f,
+                x + size * 0.34f, y - size * 0.04f);
+        iconPath.cubicTo(x + size * 0.58f, y - size * 0.02f,
+                x + size * 0.58f, y + size * 0.22f,
+                x + size * 0.36f, y + size * 0.24f);
+        iconPath.lineTo(x - size * 0.35f, y + size * 0.24f);
+        canvas.drawPath(iconPath, paint);
     }
 
     private void drawNewsTicker(Canvas canvas, int width, int height) {
@@ -251,6 +356,7 @@ final class DashboardView extends View {
     private void drawText(Canvas canvas, String text, float x, float y, float size, int color,
                           Paint.Align align, boolean bold) {
         paint.setShader(null);
+        paint.setStyle(Paint.Style.FILL);
         paint.setColor(color);
         paint.setTextSize(size);
         paint.setTextAlign(align);
@@ -281,6 +387,10 @@ final class DashboardView extends View {
 
     private static String number(double value) {
         return Double.isNaN(value) ? "--" : String.format(Locale.getDefault(), "%.0f", value);
+    }
+
+    private static String distance(double value) {
+        return Double.isNaN(value) ? "" : String.format(Locale.getDefault(), "%.1f km", value);
     }
 
     private static int aqiColor(double value) {

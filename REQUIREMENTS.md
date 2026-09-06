@@ -14,8 +14,12 @@ the requested behavior, constraints, or acceptance criteria change.
 ## Dashboard
 
 - Show a large 24-hour clock and the current date.
-- Show current weather and a three-day forecast in metric units.
+- Show current weather and a five-day forecast in metric units.
+- Show a small condition icon beside each forecast day's weather text.
 - Show European AQI plus PM2.5, PM10, and NO2 values.
+- Prefer measurements from the nearest official SEPA station within 30 km,
+  show its name and distance, and fall back to coordinate-based Open-Meteo
+  air-quality data when station data is unavailable.
 - Refresh weather and air-quality data periodically.
 - Cache the last successful weather response for offline display.
 - If Wi-Fi or DNS is unavailable during startup, keep cached data visible and
