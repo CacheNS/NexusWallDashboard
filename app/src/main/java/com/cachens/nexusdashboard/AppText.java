@@ -35,11 +35,6 @@ final class AppText {
         return preferences.getBoolean("serbian", true);
     }
 
-    static void toggleLanguage(Context context) {
-        SharedPreferences preferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
-        preferences.edit().putBoolean("serbian", !isSerbian(context)).apply();
-    }
-
     static String get(Context context, String key) {
         boolean sr = isSerbian(context);
         if ("weather".equals(key)) return sr ? "Vreme" : "Weather";
@@ -60,8 +55,9 @@ final class AppText {
         if ("rain".equals(key)) return sr ? "Padavine" : "Rain";
         if ("today".equals(key)) return sr ? "Danas" : "Today";
         if ("settings".equals(key)) return sr ? "PODEŠAVANJA" : "SETTINGS";
-        if ("settings_title".equals(key)) return sr ? "Lokacija" : "Location";
+        if ("settings_title".equals(key)) return sr ? "Podešavanja" : "Settings";
         if ("settings_hint".equals(key)) return sr ? "Grad ili poštanski broj; prazno = GPS" : "City or postal code; blank = GPS";
+        if ("language".equals(key)) return sr ? "Jezik" : "Language";
         if ("save".equals(key)) return sr ? "Sačuvaj" : "Save";
         if ("cancel".equals(key)) return sr ? "Otkaži" : "Cancel";
         if ("photos".equals(key)) return sr ? "IZABERI FOTOGRAFIJE" : "SELECT PHOTOS";

@@ -14,27 +14,67 @@ the requested behavior, constraints, or acceptance criteria change.
 ## Dashboard
 
 - Show a large 24-hour clock and the current date.
+- Keep the clock and date local to the device; they do not require a network
+  refresh.
 - Show current weather and a five-day forecast in metric units.
 - Show a small condition icon beside each forecast day's weather text.
 - Show European AQI plus PM2.5, PM10, and NO2 values.
+- Keep the weather/AQI card on the right and the five-day forecast across the
+  lower portion of the display.
+- Place the latest-update status and Settings label together on the top-right
+  row, above the weather card.
+- Render update timestamps using Android's configured 12/24-hour time format.
+- Do not display a permanent language toggle on the dashboard.
 - For Novi Sad, use Telep coordinates for air-quality source selection while
   retaining city-wide weather geocoding.
+- Use Telep AQI reference coordinates `45.238, 19.803` for a manual Novi Sad
+  location and for automatic coordinates within 3 km of Telep.
 - Prefer a recent valid outdoor Sensor.Community monitor that is closer to
   Telep than the nearest available SEPA station for indicative PM2.5 and PM10.
+- Prefer Sensor.Community location `80607` while Telep targeting is active.
+  Its published coordinates are privacy-obfuscated, so label it as a
+  Telep-area sensor rather than claiming exact street-level distance.
+- Accept community readings only when they are outdoor, plausible, no more
+  than 15 minutes old, within 5 km, and closer than the selected SEPA station.
 - Use a persisted 24-hour community-PM average before allowing those readings
   to affect the European AQI value.
+- Require at least 36 samples spanning at least 20 hours before promoting the
+  community PM average into AQI.
+- Do not promote community PM into AQI at humidity of 85% or higher or when it
+  diverges implausibly from the official/model particulate reference.
+- Preserve up to two missed local-sensor refreshes for source stability, but
+  do not reuse samples across different AQI targets or sensor IDs.
 - Retain the nearest official SEPA station for regulatory measurements and
   gaseous pollutants, and use coordinate-based Open-Meteo data as the final
   fallback.
+- Use this provider order:
+  1. Sensor.Community for local indicative PM2.5 and PM10.
+  2. SEPA for official particulate readings, AQI, NO2, O3, and SO2.
+  3. Open-Meteo for remaining modeled weather/AQI fallback values.
 - Identify community and official sources separately without overstating the
   precision of privacy-obfuscated sensor coordinates.
-- Refresh weather and air-quality data every hour.
-- Refresh weather and air quality when the display wakes if the previous
-  request was at least 10 minutes earlier.
 - Cache the last successful weather response for offline display.
 - If Wi-Fi or DNS is unavailable during startup, keep cached data visible and
   retry weather and news after one minute without showing raw network errors.
 - Run full-screen and remain usable as the tablet's Home application.
+
+## Refresh Scheduling
+
+- Refresh weather, AQI, and news once per hour while the activity is active.
+- Measure request intervals with monotonic elapsed time so manual wall-clock
+  corrections cannot stop or prematurely trigger refreshes.
+- When the dimmed display wakes, refresh weather/AQI and news only if at least
+  10 minutes have elapsed since the respective previous request.
+- Retry failed weather/AQI or news requests one minute after the failure.
+- Pause scheduled network callbacks while the activity is not in the
+  foreground and restore the correct remaining hourly or retry delay when it
+  resumes.
+- Prevent duplicate requests while a request for the same data is already in
+  flight.
+- If the configured weather target changes during an in-flight request,
+  discard the stale completion and immediately request the new target.
+- Continue displaying the last successful cached weather and news during
+  outages and lifecycle transitions.
 
 ## Location
 
@@ -42,6 +82,8 @@ the requested behavior, constraints, or acceptance criteria change.
 - Default the manual location to `Novi Sad`.
 - Manual location must work without Android location services.
 - An empty manual-location field enables automatic GPS/network location.
+- Request automatic-location updates no more frequently than every 10 minutes
+  and only after movement of at least 1 km.
 
 ## Photos
 
@@ -55,21 +97,59 @@ the requested behavior, constraints, or acceptance criteria change.
 - Copy only selected images into the dashboard's private storage.
 - Selected photos take priority and rotate once every 10 minutes.
 - Count only awake foreground time toward the 10-minute photo interval; pause
-  and preserve the remaining interval while the display is dimmed.
+  and preserve the remaining interval while the display is dimmed or the
+  activity is backgrounded.
+- Do not advance the photo index when an asynchronously decoded image cannot
+  be displayed because the activity is paused or dimmed; resume the due
+  rotation without queueing duplicate changes.
 - If no selected photos exist, rotate a locally provisioned cache of exactly
   100 licensed Novi Sad photos.
+- Curate the city cache around recognizable, normal Novi Sad scenes:
+  Petrovaradin Fortress, the Danube and bridges, Trg Slobode and the city
+  centre, streets, architecture, parks, Štrand, skyline, sunsets, night views,
+  and winter scenes.
+- Exclude cemetery/grave imagery, funeral subjects, war/battle material,
+  archival plans and maps, logos, and repetitive institutional close-ups.
+- The current collection consists of 98 Wikimedia Commons images, one Pexels
+  image, and one Unsplash image. Keep at least one Pexels and one Unsplash
+  image when rebuilding the mixed-source cache.
+- Normalize every city image to a landscape 1280x800 JPEG and target a total
+  cache size of roughly 15-30 MB.
+- Require exact filenames `photo_001.jpg` through `photo_100.jpg`, 100 unique
+  SHA-256 hashes, and 100 unique source pages.
+- Require `manifest.json` with a top-level `photos` array. Every entry must
+  contain filename, title, author, source URL, license, license URL,
+  modification note, and SHA-256.
+- Permit only CC0, public domain, CC BY, CC BY-SA, Pexels License, and Unsplash
+  License material appropriate for the personal offline cache.
 - Keep the 100-photo cache in app-private storage and outside the public Git
   repository and APK.
+- Keep the PC copy in ignored directory `.local\novi-sad-cache`.
+- Stage provisioning files at
+  `/sdcard/NexusWallDashboard/city-cache`.
+- Store imported files under app-private `files/photos/novi-sad`; store
+  explicitly selected user photos under `files/photos/user`.
 - Import a staged city cache atomically so a damaged or interrupted transfer
   cannot replace the last complete cache.
+- Recover the previous complete cache if the app is interrupted between backup
+  and activation renames.
+- Remove shared-storage staging files after a successful import.
+- Preserve the private cache across `adb install -r`; reprovision it after an
+  uninstall or signing-key change.
 - If no city cache exists, rotate the bundled freely licensed Novi Sad photos.
-- Keep source and license details for bundled images in `ATTRIBUTIONS.txt`.
+- Keep source and license details for bundled images in `ATTRIBUTIONS.txt` and
+  for the external cache in its generated `manifest.json` and
+  `ATTRIBUTIONS.txt`.
 
 ## Language
 
 - Support Serbian Latin and English.
 - Start in Serbian Latin.
-- Provide an in-app `SR | EN` toggle.
+- Provide the language selector inside Settings rather than permanently on
+  the dashboard.
+- The Settings dialog must contain manual location, separate mutually
+  exclusive `Srpski` and `English` radio buttons, Save, Cancel, and Select
+  Photos controls.
 - Translate dashboard labels, weather conditions, AQI labels, status text,
   settings text, dates, weekdays, and month names.
 
@@ -93,7 +173,10 @@ the requested behavior, constraints, or acceptance criteria change.
 ## News
 
 - Show a one-line headline ticker.
-- Render the ticker text at a large, wall-readable size.
+- Render the source at 18sp and the headline at 19sp.
+- Place the ticker flush against the bottom edge across the full display
+  width.
+- Place the update status and Settings label together at the top-right.
 - Retrieve the five newest titles from `https://www.021.rs/rss/all`.
 - Retrieve the five newest titles from `https://n1info.rs/feed/`.
 - Show the source name and one title at a time.
@@ -104,6 +187,19 @@ the requested behavior, constraints, or acceptance criteria change.
 - Cache the last successful headlines and continue showing them when a feed is
   temporarily unavailable.
 - Do not display article bodies, images, or advertising.
+
+## Android Compatibility and Networking
+
+- Support stock Android 4.4.2/API 19 while compiling against the current
+  configured Android SDK.
+- Keep Java source compatibility at Java 7.
+- Use Conscrypt to provide modern TLS on Android 4.4.
+- Preserve the Android trust store and the bundled ISRG Root X1, DigiCert
+  Global Root G2, and GlobalSign Root R1 certificates.
+- Do not embed API keys, account credentials, or private tokens.
+- PurpleAir remains a future optional provider. Do not integrate it unless a
+  useful nearby public sensor is verified or the user installs a personal
+  sensor. Prefer that sensor's local-network JSON over a cloud key.
 
 ## Device Setup
 
@@ -125,3 +221,32 @@ the requested behavior, constraints, or acceptance criteria change.
 - Keep the wall mount ventilated and inspect the battery for swelling or heat.
 - Use scheduled charging where practical rather than permanent full charge.
 - Recover after app restart, tablet reboot, and temporary Wi-Fi loss.
+- Keep only one decoded RGB_565 background bitmap resident at a time.
+- Reject incomplete, duplicate, corrupt, non-landscape, or hash-mismatched
+  staged photo collections without replacing the active cache.
+
+## Build, Deployment, and Acceptance
+
+- Repository: `https://github.com/CacheNS/NexusWallDashboard`
+- Branch: `main`
+- Build with JDK 17, Gradle 8.9, Android Gradle Plugin 8.7.3, compile/target
+  SDK 35, and minimum SDK 19.
+- Build and lint with:
+  `.\gradlew.bat --no-daemon assembleDebug lintDebug`
+- Install without deleting private data using:
+  `adb install -r app\build\outputs\apk\debug\app-debug.apk`
+- Provision the local city cache using:
+  `tools\provision-novi-sad-photos.ps1`
+- Before release, verify:
+  - The app launches after reboot and remains the full-screen dashboard.
+  - Weather, AQI, and both news sources load without runtime errors.
+  - Telep Sensor.Community and SEPA Liman are identified separately.
+  - The private city cache contains exactly 100 validated JPEGs.
+  - The active manifest contains no cemetery/grave-related entries.
+  - The full-width bottom news ticker and top-right status/Settings controls
+    are readable at 1280x800.
+  - The two language radio buttons appear inside Settings and no language
+    control appears on the dashboard.
+  - A short dim/wake or pause/resume does not refresh data inside the
+    10-minute guard and does not advance the background photo.
+  - Photo rotation resumes from its remaining awake-time interval.

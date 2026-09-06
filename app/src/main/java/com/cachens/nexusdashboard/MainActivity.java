@@ -23,11 +23,13 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -398,7 +400,8 @@ public final class MainActivity extends Activity implements LocationListener, Da
                         WEATHER_REFRESH_MS));
                 dashboardView.setWeather(result);
                 dashboardView.setStatus(AppText.get(MainActivity.this, "updated") + " "
-                        + DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(result.fetchedAt)));
+                        + android.text.format.DateFormat.getTimeFormat(MainActivity.this)
+                        .format(new Date(result.fetchedAt)));
             }
         });
     }
@@ -584,14 +587,35 @@ public final class MainActivity extends Activity implements LocationListener, Da
         input.setHint(AppText.get(this, "settings_hint"));
         input.setText(preferences.getString("location_query", "Novi Sad"));
         input.setSelectAllOnFocus(true);
+        final RadioButton serbian = new RadioButton(this);
+        serbian.setText("Srpski");
+        serbian.setChecked(AppText.isSerbian(this));
+        final RadioButton english = new RadioButton(this);
+        english.setText("English");
+        english.setChecked(!AppText.isSerbian(this));
+        RadioGroup language = new RadioGroup(this);
+        language.setOrientation(RadioGroup.HORIZONTAL);
+        language.addView(serbian);
+        language.addView(english);
+        LinearLayout settings = new LinearLayout(this);
+        settings.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density + 0.5f);
+        settings.setPadding(padding, 0, padding, 0);
+        settings.addView(input);
+        settings.addView(language);
         new AlertDialog.Builder(this)
                 .setTitle(AppText.get(this, "settings_title"))
-                .setView(input)
+                .setView(settings)
                 .setPositiveButton(AppText.get(this, "save"), new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         String query = input.getText().toString().trim();
-                        preferences.edit().putString("location_query", query).apply();
+                        preferences.edit()
+                                .putString("location_query", query)
+                                .putBoolean("serbian", serbian.isChecked())
+                                .apply();
+                        restoreCachedData();
+                        dashboardView.invalidate();
                         weatherLocationRevision++;
                         activeWeatherTarget = "";
                         lastWeatherFetchElapsed = 0;
@@ -766,7 +790,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
             hasWeather = true;
             dashboardView.setWeather(cachedWeather);
             dashboardView.setStatus(AppText.get(this, "last_updated") + " "
-                    + DateFormat.getTimeInstance(DateFormat.SHORT)
+                    + android.text.format.DateFormat.getTimeFormat(this)
                     .format(new Date(cachedWeather.fetchedAt)));
         }
         NewsSnapshot cachedNews = NewsSnapshot.load(getSharedPreferences("news", MODE_PRIVATE));

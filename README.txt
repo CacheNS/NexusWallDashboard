@@ -31,12 +31,10 @@ ATTRIBUTIONS.txt for image credits.
 
 Language and location
 ---------------------
-The app starts in Serbian Latin. Tap "SR | EN" at the top-right to switch
-between Serbian Latin and English.
-
-Tap "PODEŠAVANJA" / "SETTINGS" at the bottom-right to enter a city or postal
-code. The initial value is Novi Sad. Leave the field empty to use Android
-location services instead.
+The app starts in Serbian Latin. Tap "PODEŠAVANJA" / "SETTINGS" at the
+top-right to open Settings. Choose either the "Srpski" or "English" radio
+button, enter a city or postal code, and save. The initial location is Novi
+Sad. Leave the location field empty to use Android location services instead.
 
 Motion wake
 -----------
@@ -54,7 +52,10 @@ News
 The one-line news ticker rotates through the five newest titles from 021.rs
 and the five newest titles from N1. Feeds refresh every hour and refresh when
 the display wakes if the previous request was at least 10 minutes earlier. The
-last successful set is cached for offline use.
+last successful set is cached for offline use. The full-width ticker sits at
+the bottom of the display; update status and Settings are in the top-right.
+Update times follow the tablet's configured 12/24-hour format. Separate
+Serbian and English radio buttons are available inside Settings.
 
 Requirements
 ------------

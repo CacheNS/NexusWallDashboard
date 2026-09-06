@@ -126,12 +126,20 @@ final class DashboardView extends View {
         }
 
         drawNewsTicker(canvas, width, height);
-        drawText(canvas, status, margin, height - dp(15), sp(11), Color.argb(185, 255, 255, 255),
-                Paint.Align.LEFT, false);
-        drawText(canvas, AppText.get(context, "settings"), width - dp(105), height - dp(15), sp(11),
-                Color.argb(230, 255, 255, 255), Paint.Align.CENTER, true);
-        drawText(canvas, AppText.isSerbian(context) ? "SR | EN" : "EN | SR", width - dp(105), dp(27), sp(12),
-                Color.argb(230, 255, 255, 255), Paint.Align.CENTER, true);
+        String settings = AppText.get(context, "settings");
+        paint.setTextSize(sp(11));
+        paint.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+        float settingsWidth = paint.measureText(settings);
+        float headerRight = width - dp(16);
+        float headerY = dp(24);
+        drawText(canvas, settings, headerRight, headerY, sp(11),
+                Color.argb(230, 255, 255, 255), Paint.Align.RIGHT, true);
+        paint.setTextSize(sp(11));
+        paint.setTypeface(android.graphics.Typeface.DEFAULT);
+        String headerStatus = ellipsize(status,
+                Math.min(width * 0.48f, headerRight - settingsWidth - dp(36)));
+        drawText(canvas, headerStatus, headerRight - settingsWidth - dp(18), headerY, sp(11),
+                Color.argb(185, 255, 255, 255), Paint.Align.RIGHT, false);
 
         if (dimmed) {
             paint.setColor(Color.BLACK);
@@ -320,20 +328,20 @@ final class DashboardView extends View {
         }
         int index = (int) ((System.currentTimeMillis() / 10000L) % news.items.size());
         NewsItem item = news.items.get(index);
-        float left = dp(32);
-        float right = width - dp(32);
-        float top = height - dp(88);
-        float bottom = height - dp(36);
+        float left = 0;
+        float right = width;
+        float top = height - dp(48);
+        float bottom = height;
         paint.setColor(Color.argb(125, 0, 0, 0));
         newsRect.set(left, top, right, bottom);
-        canvas.drawRoundRect(newsRect, dp(10), dp(10), paint);
-        float sourceWidth = dp(92);
-        drawText(canvas, item.source, left + dp(14), bottom - dp(14), sp(20),
+        canvas.drawRect(newsRect, paint);
+        float sourceWidth = dp(84);
+        drawText(canvas, item.source, left + dp(14), bottom - dp(13), sp(18),
                 Color.rgb(255, 214, 87), Paint.Align.LEFT, true);
-        paint.setTextSize(sp(22));
+        paint.setTextSize(sp(19));
         paint.setTypeface(android.graphics.Typeface.DEFAULT);
         String title = ellipsize(item.title, right - left - sourceWidth - dp(22));
-        drawText(canvas, title, left + sourceWidth, bottom - dp(14), sp(22),
+        drawText(canvas, title, left + sourceWidth, bottom - dp(13), sp(19),
                 Color.WHITE, Paint.Align.LEFT, false);
     }
 
@@ -458,12 +466,7 @@ final class DashboardView extends View {
         if (dimmed) {
             return true;
         }
-        if (event.getY() < dp(60) && event.getX() > getWidth() - dp(220)) {
-            AppText.toggleLanguage(context);
-            ((android.app.Activity) context).recreate();
-            return true;
-        }
-        if (event.getY() > getHeight() - dp(75) && event.getX() > getWidth() - dp(220)
+        if (event.getY() < dp(52) && event.getX() > getWidth() - dp(220)
                 && listener != null) {
             listener.onSettingsRequested();
         }
