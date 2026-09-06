@@ -22,10 +22,13 @@ import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.Spinner;
+import android.widget.TextView;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -47,8 +50,8 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private static final long PHOTO_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long NEWS_REFRESH_MS = 60L * 60L * 1000L;
     private static final long NETWORK_RETRY_MS = 60L * 1000L;
-    private static final long IDLE_TIMEOUT_MS = 2L * 60L * 1000L;
-    private static final long IDLE_CHECK_MS = 10L * 1000L;
+    private static final int DEFAULT_IDLE_TIMEOUT_SECONDS = 10;
+    private static final int[] IDLE_TIMEOUT_OPTIONS_SECONDS = {10, 15, 30, 60, 120, 300, 600};
     private static final float LOCATION_DISTANCE_METERS = 1000f;
 
     private final ExecutorService weatherExecutor = Executors.newSingleThreadExecutor();
@@ -107,10 +110,16 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private final Runnable idleCheck = new Runnable() {
         @Override
         public void run() {
-            if (!dimmed && System.currentTimeMillis() - lastInteractionAt >= IDLE_TIMEOUT_MS) {
-                dimDisplay();
+            if (destroyed || !resumed || dimmed) {
+                return;
             }
-            handler.postDelayed(this, IDLE_CHECK_MS);
+            long remaining = idleTimeoutMs()
+                    - (SystemClock.uptimeMillis() - lastInteractionAt);
+            if (remaining <= 0) {
+                dimDisplay();
+            } else {
+                handler.postDelayed(this, remaining);
+            }
         }
     };
 
@@ -161,7 +170,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         importStagedPhotoCache();
         motionDetector = new MotionDetector(this);
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        lastInteractionAt = System.currentTimeMillis();
+        lastInteractionAt = SystemClock.uptimeMillis();
 
     }
 
@@ -169,15 +178,14 @@ public final class MainActivity extends Activity implements LocationListener, Da
     protected void onResume() {
         super.onResume();
         resumed = true;
-        lastInteractionAt = System.currentTimeMillis();
+        lastInteractionAt = SystemClock.uptimeMillis();
         enterImmersiveMode();
         restoreCachedData();
         wakeDisplay();
         startAvailableFeatures();
         resumeDataRefreshes();
         resumePhotoRotation();
-        handler.removeCallbacks(idleCheck);
-        handler.postDelayed(idleCheck, IDLE_CHECK_MS);
+        scheduleIdleTimeout();
     }
 
     @Override
@@ -598,12 +606,29 @@ public final class MainActivity extends Activity implements LocationListener, Da
         language.addView(serbian);
         language.addView(english);
         language.check(AppText.isSerbian(this) ? serbian.getId() : english.getId());
+        TextView timeoutLabel = new TextView(this);
+        timeoutLabel.setText(AppText.get(this, "screen_timeout"));
+        final Spinner timeout = new Spinner(this);
+        String[] timeoutLabels = new String[IDLE_TIMEOUT_OPTIONS_SECONDS.length];
+        for (int i = 0; i < IDLE_TIMEOUT_OPTIONS_SECONDS.length; i++) {
+            timeoutLabels[i] = AppText.formatDuration(
+                    this, IDLE_TIMEOUT_OPTIONS_SECONDS[i]);
+        }
+        ArrayAdapter<String> timeoutAdapter = new ArrayAdapter<String>(
+                this, android.R.layout.simple_spinner_item, timeoutLabels);
+        timeoutAdapter.setDropDownViewResource(
+                android.R.layout.simple_spinner_dropdown_item);
+        timeout.setAdapter(timeoutAdapter);
+        timeout.setSelection(timeoutOptionIndex(preferences.getInt(
+                "idle_timeout_seconds", DEFAULT_IDLE_TIMEOUT_SECONDS)));
         LinearLayout settings = new LinearLayout(this);
         settings.setOrientation(LinearLayout.VERTICAL);
         int padding = (int) (20 * getResources().getDisplayMetrics().density + 0.5f);
         settings.setPadding(padding, 0, padding, 0);
         settings.addView(input);
         settings.addView(language);
+        settings.addView(timeoutLabel);
+        settings.addView(timeout);
         new AlertDialog.Builder(this)
                 .setTitle(AppText.get(this, "settings_title"))
                 .setView(settings)
@@ -615,7 +640,12 @@ public final class MainActivity extends Activity implements LocationListener, Da
                                 .putString("location_query", query)
                                 .putBoolean("serbian",
                                         language.getCheckedRadioButtonId() == serbian.getId())
+                                .putInt("idle_timeout_seconds",
+                                        IDLE_TIMEOUT_OPTIONS_SECONDS[
+                                                timeout.getSelectedItemPosition()])
                                 .apply();
+                        lastInteractionAt = SystemClock.uptimeMillis();
+                        scheduleIdleTimeout();
                         restoreCachedData();
                         dashboardView.invalidate();
                         weatherLocationRevision++;
@@ -743,6 +773,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
 
     private void dimDisplay() {
         dimmed = true;
+        handler.removeCallbacks(idleCheck);
         pausePhotoRotation();
         dashboardView.setDimmed(true);
         WindowManager.LayoutParams parameters = getWindow().getAttributes();
@@ -754,8 +785,9 @@ public final class MainActivity extends Activity implements LocationListener, Da
         if (destroyed || !resumed) {
             return;
         }
-        lastInteractionAt = System.currentTimeMillis();
+        lastInteractionAt = SystemClock.uptimeMillis();
         if (!dimmed) {
+            scheduleIdleTimeout();
             return;
         }
         dimmed = false;
@@ -764,6 +796,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         parameters.screenBrightness = 0.65f;
         getWindow().setAttributes(parameters);
         resumePhotoRotation();
+        scheduleIdleTimeout();
         long now = SystemClock.elapsedRealtime();
         if (lastWeatherFetchElapsed == 0
                 || now - lastWeatherFetchElapsed >= WAKE_REFRESH_MIN_INTERVAL_MS) {
@@ -772,6 +805,28 @@ public final class MainActivity extends Activity implements LocationListener, Da
         if (lastNewsFetchElapsed == 0
                 || now - lastNewsFetchElapsed >= WAKE_REFRESH_MIN_INTERVAL_MS) {
             updateNews(true);
+        }
+    }
+
+    private long idleTimeoutMs() {
+        int seconds = getSharedPreferences("settings", MODE_PRIVATE).getInt(
+                "idle_timeout_seconds", DEFAULT_IDLE_TIMEOUT_SECONDS);
+        return seconds * 1000L;
+    }
+
+    private int timeoutOptionIndex(int seconds) {
+        for (int i = 0; i < IDLE_TIMEOUT_OPTIONS_SECONDS.length; i++) {
+            if (IDLE_TIMEOUT_OPTIONS_SECONDS[i] == seconds) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private void scheduleIdleTimeout() {
+        handler.removeCallbacks(idleCheck);
+        if (!destroyed && resumed && !dimmed) {
+            handler.postDelayed(idleCheck, idleTimeoutMs());
         }
     }
 

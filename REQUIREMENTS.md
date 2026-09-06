@@ -148,8 +148,8 @@ the requested behavior, constraints, or acceptance criteria change.
 - Provide the language selector inside Settings rather than permanently on
   the dashboard.
 - The Settings dialog must contain manual location, separate mutually
-  exclusive `Srpski` and `English` radio buttons, Save, Cancel, and Select
-  Photos controls.
+  exclusive `Srpski` and `English` radio buttons, a screen-dimming timeout,
+  Save, Cancel, and Select Photos controls.
 - Translate dashboard labels, weather conditions, AQI labels, status text,
   settings text, dates, weekdays, and month names.
 
@@ -158,8 +158,12 @@ the requested behavior, constraints, or acceptance criteria change.
 - Use the Nexus 7 front camera to detect movement.
 - Keep camera frames in volatile memory only.
 - Never save, upload, or transmit camera frames.
-- After two minutes without motion or touch, show a black screen at minimum
-  brightness.
+- Make the inactivity period configurable in Settings with choices of 10
+  seconds, 15 seconds, 30 seconds, 1 minute, 2 minutes, 5 minutes, and 10
+  minutes.
+- Default the inactivity period to 10 seconds.
+- After the configured period without motion or touch, show a black screen at
+  minimum brightness.
 - Restore the dashboard to normal brightness when movement or touch is
   detected.
 - Keep the camera preview low resolution and sample frames at a reduced rate

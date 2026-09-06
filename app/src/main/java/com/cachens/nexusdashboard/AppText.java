@@ -58,6 +58,7 @@ final class AppText {
         if ("settings_title".equals(key)) return sr ? "Podešavanja" : "Settings";
         if ("settings_hint".equals(key)) return sr ? "Grad ili poštanski broj; prazno = GPS" : "City or postal code; blank = GPS";
         if ("language".equals(key)) return sr ? "Jezik" : "Language";
+        if ("screen_timeout".equals(key)) return sr ? "Zatamni ekran posle" : "Dim screen after";
         if ("save".equals(key)) return sr ? "Sačuvaj" : "Save";
         if ("cancel".equals(key)) return sr ? "Otkaži" : "Cancel";
         if ("photos".equals(key)) return sr ? "IZABERI FOTOGRAFIJE" : "SELECT PHOTOS";
@@ -65,6 +66,18 @@ final class AppText {
         if ("local_pm_generic".equals(key)) return sr ? "PM lokalni senzor" : "PM local sensor";
         if ("sepa".equals(key)) return "SEPA";
         return key;
+    }
+
+    static String formatDuration(Context context, int seconds) {
+        boolean sr = isSerbian(context);
+        if (seconds < 60) {
+            return seconds + (sr ? " sekundi" : " seconds");
+        }
+        int minutes = seconds / 60;
+        if (sr) {
+            return minutes == 1 ? "1 minut" : minutes + " minuta";
+        }
+        return minutes == 1 ? "1 minute" : minutes + " minutes";
     }
 
     static String condition(Context context, int code) {
