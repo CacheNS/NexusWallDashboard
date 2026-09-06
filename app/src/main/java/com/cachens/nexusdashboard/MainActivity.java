@@ -588,15 +588,16 @@ public final class MainActivity extends Activity implements LocationListener, Da
         input.setText(preferences.getString("location_query", "Novi Sad"));
         input.setSelectAllOnFocus(true);
         final RadioButton serbian = new RadioButton(this);
+        serbian.setId(View.generateViewId());
         serbian.setText("Srpski");
-        serbian.setChecked(AppText.isSerbian(this));
         final RadioButton english = new RadioButton(this);
+        english.setId(View.generateViewId());
         english.setText("English");
-        english.setChecked(!AppText.isSerbian(this));
-        RadioGroup language = new RadioGroup(this);
+        final RadioGroup language = new RadioGroup(this);
         language.setOrientation(RadioGroup.HORIZONTAL);
         language.addView(serbian);
         language.addView(english);
+        language.check(AppText.isSerbian(this) ? serbian.getId() : english.getId());
         LinearLayout settings = new LinearLayout(this);
         settings.setOrientation(LinearLayout.VERTICAL);
         int padding = (int) (20 * getResources().getDisplayMetrics().density + 0.5f);
@@ -612,7 +613,8 @@ public final class MainActivity extends Activity implements LocationListener, Da
                         String query = input.getText().toString().trim();
                         preferences.edit()
                                 .putString("location_query", query)
-                                .putBoolean("serbian", serbian.isChecked())
+                                .putBoolean("serbian",
+                                        language.getCheckedRadioButtonId() == serbian.getId())
                                 .apply();
                         restoreCachedData();
                         dashboardView.invalidate();
