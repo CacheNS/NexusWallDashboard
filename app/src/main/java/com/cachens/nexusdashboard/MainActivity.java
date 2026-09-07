@@ -47,6 +47,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private static final long WEATHER_REFRESH_MS = 60L * 60L * 1000L;
     private static final long WAKE_REFRESH_MIN_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long LOCATION_INTERVAL_MS = 10L * 60L * 1000L;
+    private static final long LOCATION_FRESHNESS_MS = 30L * 60L * 1000L;
     private static final long PHOTO_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long NEWS_REFRESH_MS = 60L * 60L * 1000L;
     private static final long NETWORK_RETRY_MS = 60L * 1000L;
@@ -180,6 +181,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     protected void onResume() {
         super.onResume();
         resumed = true;
+        dashboardView.setActive(true);
         lastInteractionAt = SystemClock.uptimeMillis();
         enterImmersiveMode();
         restoreCachedData();
@@ -193,6 +195,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     @Override
     protected void onPause() {
         resumed = false;
+        dashboardView.setActive(false);
         pausePhotoRotation();
         handler.removeCallbacks(weatherRefresh);
         handler.removeCallbacks(weatherRetry);
@@ -264,6 +267,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private void startLocationUpdates() {
         boolean enabled = false;
         try {
+            locationManager.removeUpdates(this);
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 enabled = true;
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,
@@ -273,8 +277,11 @@ public final class MainActivity extends Activity implements LocationListener, Da
                     lastLocation = location;
                     updateWeather(location, false);
                 }
-            }
-            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                if (!isRecentLocation(location)
+                        && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    locationManager.requestSingleUpdate(LocationManager.GPS_PROVIDER, this, null);
+                }
+            } else if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 enabled = true;
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
                         LOCATION_INTERVAL_MS, LOCATION_DISTANCE_METERS, this);
@@ -291,6 +298,11 @@ public final class MainActivity extends Activity implements LocationListener, Da
         dashboardView.setStatus(enabled
                 ? AppText.get(this, "finding_location")
                 : AppText.get(this, "enable_location"));
+    }
+
+    private static boolean isRecentLocation(Location location) {
+        return location != null && location.getTime() > 0
+                && System.currentTimeMillis() - location.getTime() <= LOCATION_FRESHNESS_MS;
     }
 
     @Override

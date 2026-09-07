@@ -40,10 +40,29 @@ Settings and defaults to 3 seconds. Available choices are 0, 1, 3, 5, 10, 15,
 30, or 60 seconds. The `0 - Immediately` choice dims as soon as the camera's
 next motion-sampling interval confirms that movement has stopped. Motion or a
 touch restores normal brightness. Camera frames are never saved or transmitted.
+The app requests a 5 FPS preview when the camera supports it and retains only
+sampled luminance values between checks to reduce processor and camera load.
 
 The display is dimmed rather than put into hardware sleep because Android
 cannot reliably keep camera motion detection running while the app is
 suspended.
+
+Power and heat
+--------------
+The clock redraws on minute boundaries and the news ticker redraws every ten
+seconds. Recurring canvas redraws stop while the dashboard is dimmed or in the
+background. For a fixed installation, keep the manual location configured so
+Android location providers remain off. Use the lowest comfortable display
+brightness, keep the wall mount ventilated, and use scheduled charging rather
+than holding an aging battery at full charge continuously.
+
+Stock Android 4.4.2 on the Nexus 7 does not expose a charge threshold or a
+charging-enable switch. Root access alone therefore cannot limit charging; it
+would also require a compatible custom kernel, and unlocking the bootloader
+erases the tablet. Do not unlock or root solely for charge limiting. Prefer an
+external smart plug or USB power controller that turns charging off near 80%
+and restores it near 55%. Keep charging control local and do not store plug or
+home-automation credentials in the app.
 
 News
 ----

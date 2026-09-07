@@ -84,6 +84,9 @@ the requested behavior, constraints, or acceptance criteria change.
 - An empty manual-location field enables automatic GPS/network location.
 - Request automatic-location updates no more frequently than every 10 minutes
   and only after movement of at least 1 km.
+- Prefer network location for recurring automatic updates. Use GPS as a
+  one-shot fallback when network location is enabled but has no fix newer than
+  30 minutes; use recurring GPS only when network location is unavailable.
 
 ## Photos
 
@@ -170,6 +173,11 @@ the requested behavior, constraints, or acceptance criteria change.
   detected.
 - Keep the camera preview low resolution and sample frames at a reduced rate
   to limit CPU use and heat.
+- Prefer the lowest supported camera preview rate of at least 5 frames per
+  second, falling back to a supported preview range when the device does not
+  report discrete rates.
+- Retain only sampled luminance values between motion checks rather than a
+  complete camera frame.
 - If camera access is unavailable, keep the dashboard functional without
   motion wake.
 - Treat the black/minimum-brightness state as display-off behavior. Hardware
@@ -179,6 +187,12 @@ the requested behavior, constraints, or acceptance criteria change.
 ## News
 
 - Show a one-line headline ticker.
+- Redraw time-dependent dashboard content on its visible boundary: once per
+  minute for the clock and once per 10 seconds while the news ticker is
+  available.
+- Do not schedule recurring canvas redraws while the dashboard is dimmed or
+  the activity is not in the foreground. Data, photo, status, settings, and
+  dim/wake changes must still redraw immediately.
 - Render the source at 18sp and the headline at 19sp.
 - Place the ticker flush against the bottom edge across the full display
   width.
@@ -218,6 +232,9 @@ the requested behavior, constraints, or acceptance criteria change.
 - Start on stock Android 4.4.2.
 - Do not unlock the bootloader or erase the tablet unless a demonstrated
   compatibility blocker requires a custom ROM and the user approves the wipe.
+- Do not unlock or root the tablet solely for charge limiting. The stock
+  kernel exposes no charge-threshold or charging-enable control, and root
+  access alone does not add hardware support.
 
 ## Safety and Reliability
 
@@ -225,7 +242,9 @@ the requested behavior, constraints, or acceptance criteria change.
 - Downsample local images before display.
 - Avoid unverified APK and ROM sources.
 - Keep the wall mount ventilated and inspect the battery for swelling or heat.
-- Use scheduled charging where practical rather than permanent full charge.
+- Prefer an external smart plug or USB power controller that keeps the battery
+  near 55-80% rather than maintaining a permanent full charge. Keep any future
+  controller integration on the local network and do not embed credentials.
 - Recover after app restart, tablet reboot, and temporary Wi-Fi loss.
 - Keep only one decoded RGB_565 background bitmap resident at a time.
 - Reject incomplete, duplicate, corrupt, non-landscape, or hash-mismatched

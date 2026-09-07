@@ -19,6 +19,9 @@ import java.util.Date;
 import java.util.Locale;
 
 final class DashboardView extends View {
+    private static final long CLOCK_REFRESH_MS = 60L * 1000L;
+    private static final long NEWS_REFRESH_MS = 10L * 1000L;
+
     interface Listener {
         void onSettingsRequested();
         void onUserInteraction();
@@ -45,6 +48,14 @@ final class DashboardView extends View {
     private Listener listener;
     private String status;
     private boolean dimmed;
+    private boolean active;
+
+    private final Runnable displayRefresh = new Runnable() {
+        @Override
+        public void run() {
+            invalidate();
+        }
+    };
 
     DashboardView(Context context) {
         super(context);
@@ -84,7 +95,16 @@ final class DashboardView extends View {
 
     void setDimmed(boolean value) {
         dimmed = value;
+        removeCallbacks(displayRefresh);
         invalidate();
+    }
+
+    void setActive(boolean value) {
+        active = value;
+        removeCallbacks(displayRefresh);
+        if (active) {
+            invalidate();
+        }
     }
 
     @Override
@@ -145,7 +165,24 @@ final class DashboardView extends View {
             paint.setColor(Color.BLACK);
             canvas.drawRect(0, 0, width, height, paint);
         }
-        postInvalidateDelayed(1000);
+        scheduleDisplayRefresh();
+    }
+
+    private void scheduleDisplayRefresh() {
+        removeCallbacks(displayRefresh);
+        if (!active || dimmed) {
+            return;
+        }
+        long interval = news == null || news.items.isEmpty()
+                ? CLOCK_REFRESH_MS : NEWS_REFRESH_MS;
+        long now = System.currentTimeMillis();
+        postDelayed(displayRefresh, interval - now % interval);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        removeCallbacks(displayRefresh);
+        super.onDetachedFromWindow();
     }
 
     private void drawBackgroundPhoto(Canvas canvas, int width, int height) {
