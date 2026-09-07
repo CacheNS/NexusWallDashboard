@@ -3,9 +3,11 @@ package com.cachens.nexusdashboard;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.ClipData;
@@ -50,7 +52,6 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private static final long LOCATION_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long LOCATION_FRESHNESS_MS = 30L * 60L * 1000L;
     private static final long LOCATION_PROMPT_DELAY_MS = 3000L;
-    private static final long PHOTO_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long NEWS_REFRESH_MS = 60L * 60L * 1000L;
     private static final long NETWORK_RETRY_MS = 60L * 1000L;
     private static final long IMMEDIATE_IDLE_TIMEOUT_MS = 750L;
@@ -72,13 +73,10 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private volatile long lastWeatherFailureElapsed;
     private volatile long lastNewsFailureElapsed;
     private long lastInteractionAt;
-    private long photoRotationDueAt;
-    private long photoRotationRemainingMs = 1000L;
     private boolean dimmed;
     private boolean locationPromptShown;
     private boolean permissionRequested;
     private boolean hasWeather;
-    private boolean photoRotationScheduled;
     private boolean photoLoadInProgress;
     private boolean resumed;
     private volatile boolean destroyed;
@@ -89,16 +87,10 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private volatile boolean weatherNeedsRetry;
     private volatile boolean newsNeedsRetry;
 
-    private final Runnable photoRotation = new Runnable() {
+    private final BroadcastReceiver dateChangeReceiver = new BroadcastReceiver() {
         @Override
-        public void run() {
-            photoRotationScheduled = false;
-            photoRotationRemainingMs = 0;
-            if (dashboardView.getWidth() <= 0 || dashboardView.getHeight() <= 0) {
-                schedulePhotoRotation(1000L);
-                return;
-            }
-            loadNextPhoto();
+        public void onReceive(Context context, Intent intent) {
+            loadPhotoForToday();
         }
     };
 
@@ -204,7 +196,17 @@ public final class MainActivity extends Activity implements LocationListener, Da
         wakeDisplay();
         startAvailableFeatures();
         resumeDataRefreshes();
-        resumePhotoRotation();
+        IntentFilter dateChanges = new IntentFilter();
+        dateChanges.addAction(Intent.ACTION_DATE_CHANGED);
+        dateChanges.addAction(Intent.ACTION_TIME_CHANGED);
+        dateChanges.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+        registerReceiver(dateChangeReceiver, dateChanges);
+        dashboardView.post(new Runnable() {
+            @Override
+            public void run() {
+                loadPhotoForToday();
+            }
+        });
         scheduleIdleTimeout();
     }
 
@@ -212,7 +214,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     protected void onPause() {
         resumed = false;
         dashboardView.setActive(false);
-        pausePhotoRotation();
+        unregisterReceiver(dateChangeReceiver);
         handler.removeCallbacks(weatherRefresh);
         handler.removeCallbacks(weatherRetry);
         handler.removeCallbacks(newsRefresh);
@@ -231,7 +233,6 @@ public final class MainActivity extends Activity implements LocationListener, Da
     @Override
     protected void onDestroy() {
         destroyed = true;
-        handler.removeCallbacks(photoRotation);
         handler.removeCallbacks(newsRefresh);
         handler.removeCallbacks(idleCheck);
         handler.removeCallbacks(weatherRetry);
@@ -495,7 +496,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         });
     }
 
-    private void loadNextPhoto() {
+    private void loadPhotoForToday() {
         final int width = dashboardView.getWidth();
         final int height = dashboardView.getHeight();
         if (width <= 0 || height <= 0) {
@@ -508,24 +509,19 @@ public final class MainActivity extends Activity implements LocationListener, Da
         photoExecutor.execute(new Runnable() {
             @Override
             public void run() {
-                final android.graphics.Bitmap bitmap = photoRepository.loadNext(width, height);
+                final android.graphics.Bitmap bitmap = photoRepository.loadForToday(width, height);
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         photoLoadInProgress = false;
                         if (bitmap == null) {
-                            if (!destroyed && resumed && !dimmed) {
-                                schedulePhotoRotation(1000L);
-                            }
                             return;
                         }
                         if (destroyed || !resumed || dimmed) {
                             bitmap.recycle();
-                            photoRotationRemainingMs = 0;
                             return;
                         }
                         dashboardView.setBackgroundBitmap(bitmap);
-                        schedulePhotoRotation(PHOTO_INTERVAL_MS);
                     }
                 });
             }
@@ -767,7 +763,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
                         if (destroyed) {
                             return;
                         }
-                        loadNextPhoto();
+                        loadPhotoForToday();
                     }
                 });
             }
@@ -845,7 +841,6 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private void dimDisplay() {
         dimmed = true;
         handler.removeCallbacks(idleCheck);
-        pausePhotoRotation();
         dashboardView.setDimmed(true);
         WindowManager.LayoutParams parameters = getWindow().getAttributes();
         parameters.screenBrightness = 0.01f;
@@ -866,7 +861,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         WindowManager.LayoutParams parameters = getWindow().getAttributes();
         parameters.screenBrightness = 0.65f;
         getWindow().setAttributes(parameters);
-        resumePhotoRotation();
+        loadPhotoForToday();
         scheduleIdleTimeout();
         long now = SystemClock.elapsedRealtime();
         if (lastWeatherFetchElapsed == 0
@@ -984,32 +979,4 @@ public final class MainActivity extends Activity implements LocationListener, Da
                 delay == 0 ? NETWORK_RETRY_MS : delay);
     }
 
-    private void schedulePhotoRotation(long delayMs) {
-        if (destroyed || !resumed || dimmed) {
-            photoRotationRemainingMs = Math.max(0, delayMs);
-            return;
-        }
-        handler.removeCallbacks(photoRotation);
-        photoRotationRemainingMs = Math.max(0, delayMs);
-        photoRotationDueAt = SystemClock.uptimeMillis() + photoRotationRemainingMs;
-        photoRotationScheduled = true;
-        handler.postDelayed(photoRotation, photoRotationRemainingMs);
-    }
-
-    private void pausePhotoRotation() {
-        if (!photoRotationScheduled) {
-            return;
-        }
-        photoRotationRemainingMs = Math.max(0,
-                photoRotationDueAt - SystemClock.uptimeMillis());
-        handler.removeCallbacks(photoRotation);
-        photoRotationScheduled = false;
-    }
-
-    private void resumePhotoRotation() {
-        if (!destroyed && resumed && !dimmed && !photoRotationScheduled
-                && !photoLoadInProgress) {
-            schedulePhotoRotation(photoRotationRemainingMs);
-        }
-    }
 }

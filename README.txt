@@ -14,8 +14,8 @@ The dashboard copies only explicitly selected images into private app storage
 and ignores all other tablet photos. User-selected images take priority. If no
 user images are selected, the app uses a locally provisioned cache of 100 Novi
 Sad photos, then falls back to three images bundled with the APK. Backgrounds
-rotate after every 10 minutes of awake display time; the rotation timer pauses
-while the dashboard is dimmed or not in the foreground.
+change once per local calendar day. The same photo remains selected across
+app restarts and display dim/wake cycles throughout that day.
 
 Run `tools\provision-novi-sad-photos.ps1` from the configured development PC
 to validate and transfer the machine-local `.local\novi-sad-cache` collection.

@@ -101,14 +101,12 @@ the requested behavior, constraints, or acceptance criteria change.
   either directly from the official Google Photos provider when available or
   after downloading them with the official Google Photos app.
 - Copy only selected images into the dashboard's private storage.
-- Selected photos take priority and rotate once every 10 minutes.
-- Count only awake foreground time toward the 10-minute photo interval; pause
-  and preserve the remaining interval while the display is dimmed or the
-  activity is backgrounded.
-- Do not advance the photo index when an asynchronously decoded image cannot
-  be displayed because the activity is paused or dimmed; resume the due
-  rotation without queueing duplicate changes.
-- If no selected photos exist, rotate a locally provisioned cache of exactly
+- Selected photos take priority and change once per local calendar day.
+- Select photos deterministically from the date so the same photo remains
+  selected across app restarts and display dim/wake cycles during that day.
+- Refresh the photo when the local date, clock, or time zone changes without
+  maintaining a recurring photo rotation timer.
+- If no selected photos exist, use a locally provisioned cache of exactly
   100 licensed Novi Sad photos.
 - Curate the city cache around recognizable, normal Novi Sad scenes:
   Petrovaradin Fortress, the Danube and bridges, Trg Slobode and the city
@@ -142,7 +140,8 @@ the requested behavior, constraints, or acceptance criteria change.
 - Remove shared-storage staging files after a successful import.
 - Preserve the private cache across `adb install -r`; reprovision it after an
   uninstall or signing-key change.
-- If no city cache exists, rotate the bundled freely licensed Novi Sad photos.
+- If no city cache exists, select among the bundled freely licensed Novi Sad
+  photos by local calendar day.
 - Keep source and license details for bundled images in `ATTRIBUTIONS.txt` and
   for the external cache in its generated `manifest.json` and
   `ATTRIBUTIONS.txt`.
@@ -278,4 +277,5 @@ the requested behavior, constraints, or acceptance criteria change.
     control appears on the dashboard.
   - A short dim/wake or pause/resume does not refresh data inside the
     10-minute guard and does not advance the background photo.
-  - Photo rotation resumes from its remaining awake-time interval.
+  - The background photo changes after the local calendar date changes and
+    remains unchanged for the rest of that day.

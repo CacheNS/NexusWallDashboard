@@ -22,6 +22,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -41,9 +42,6 @@ final class PhotoRepository {
     };
     private File[] userPhotos = new File[0];
     private File[] cityPhotos = new File[0];
-    private int nextUserIndex;
-    private int nextCityIndex;
-    private int fallbackIndex;
 
     PhotoRepository(Context context) {
         resources = context.getResources();
@@ -60,8 +58,6 @@ final class PhotoRepository {
     synchronized void reload() {
         userPhotos = imageFiles(userDirectory);
         cityPhotos = imageFiles(cityDirectory);
-        nextUserIndex = 0;
-        nextCityIndex = 0;
     }
 
     private static File[] imageFiles(File directory) {
@@ -87,26 +83,37 @@ final class PhotoRepository {
         return result;
     }
 
-    synchronized Bitmap loadNext(int targetWidth, int targetHeight) {
+    synchronized Bitmap loadForToday(int targetWidth, int targetHeight) {
+        long dayIndex = currentDayIndex();
         for (int attempts = 0; attempts < userPhotos.length; attempts++) {
-            File file = userPhotos[nextUserIndex];
-            nextUserIndex = (nextUserIndex + 1) % userPhotos.length;
+            int index = positiveModulo(dayIndex + attempts, userPhotos.length);
+            File file = userPhotos[index];
             Bitmap bitmap = decode(file, targetWidth, targetHeight);
             if (bitmap != null) {
                 return bitmap;
             }
         }
         for (int attempts = 0; attempts < cityPhotos.length; attempts++) {
-            File file = cityPhotos[nextCityIndex];
-            nextCityIndex = (nextCityIndex + 1) % cityPhotos.length;
+            int index = positiveModulo(dayIndex + attempts, cityPhotos.length);
+            File file = cityPhotos[index];
             Bitmap bitmap = decode(file, targetWidth, targetHeight);
             if (bitmap != null) {
                 return bitmap;
             }
         }
-        int resourceId = fallbackPhotos[fallbackIndex];
-        fallbackIndex = (fallbackIndex + 1) % fallbackPhotos.length;
+        int resourceId = fallbackPhotos[positiveModulo(dayIndex, fallbackPhotos.length)];
         return BitmapFactory.decodeResource(resources, resourceId);
+    }
+
+    private static long currentDayIndex() {
+        Calendar calendar = Calendar.getInstance();
+        long previousYear = calendar.get(Calendar.YEAR) - 1L;
+        return previousYear * 365L + previousYear / 4L - previousYear / 100L
+                + previousYear / 400L + calendar.get(Calendar.DAY_OF_YEAR);
+    }
+
+    private static int positiveModulo(long value, int divisor) {
+        return (int) ((value % divisor + divisor) % divisor);
     }
 
     File directory() {
