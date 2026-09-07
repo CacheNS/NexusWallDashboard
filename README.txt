@@ -10,11 +10,6 @@ Photos or any Google account data.
 
 Photos
 ------
-Tap Settings, then Select Photos. Select only images from the Google Photos
-album "Natasa, Dusan & 2 others". If the old Android picker cannot browse
-Google Photos directly, first download the chosen images with the official
-Google Photos app and then select the downloaded files.
-
 The dashboard copies only explicitly selected images into private app storage
 and ignores all other tablet photos. User-selected images take priority. If no
 user images are selected, the app uses a locally provisioned cache of 100 Novi
