@@ -25,15 +25,11 @@ the requested behavior, constraints, or acceptance criteria change.
   row, above the weather card.
 - Render update timestamps using Android's configured 12/24-hour time format.
 - Do not display a permanent language toggle on the dashboard.
-- For Novi Sad, use Telep coordinates for air-quality source selection while
-  retaining city-wide weather geocoding.
-- Use Telep AQI reference coordinates `45.238, 19.803` for a manual Novi Sad
-  location and for automatic coordinates within 3 km of Telep.
-- Prefer a recent valid outdoor Sensor.Community monitor that is closer to
-  Telep than the nearest available SEPA station for indicative PM2.5 and PM10.
-- Prefer Sensor.Community location `80607` while Telep targeting is active.
-  Its published coordinates are privacy-obfuscated, so label it as a
-  Telep-area sensor rather than claiming exact street-level distance.
+- Use the same GPS coordinates or geocoded manual location for weather,
+  Open-Meteo air quality, SEPA station selection, and Sensor.Community sensor
+  selection. Do not substitute a neighborhood or preferred sensor.
+- Prefer the nearest recent valid outdoor Sensor.Community monitor that is
+  closer than the nearest available SEPA station for indicative PM2.5 and PM10.
 - Accept community readings only when they are outdoor, plausible, no more
   than 15 minutes old, within 5 km, and closer than the selected SEPA station.
 - Use a persisted 24-hour community-PM average before allowing those readings
@@ -79,9 +75,16 @@ the requested behavior, constraints, or acceptance criteria change.
 ## Location
 
 - Allow a city or postal code to be entered manually in the app.
-- Default the manual location to `Novi Sad`.
+- Default the manual-location field to empty so first run uses Android
+  location services.
+- On upgrade from a build that supplied an implicit location, clear the saved
+  location selection and location-derived weather and PM caches once. Require
+  the user to enable location services or enter a place in Settings.
 - Manual location must work without Android location services.
 - An empty manual-location field enables automatic GPS/network location.
+- If no cached weather exists and automatic location has not produced a fix,
+  prompt the user to wait for GPS, open Android Location Settings, or enter a
+  place in app Settings.
 - Request automatic-location updates no more frequently than every 10 minutes
   and only after movement of at least 1 km.
 - Prefer network location for recurring automatic updates. Use GPS as a
@@ -265,7 +268,8 @@ the requested behavior, constraints, or acceptance criteria change.
 - Before release, verify:
   - The app launches after reboot and remains the full-screen dashboard.
   - Weather, AQI, and both news sources load without runtime errors.
-  - Telep Sensor.Community and SEPA Liman are identified separately.
+  - Weather and AQI providers use the active GPS or geocoded manual
+    coordinates, and community and official sources are identified separately.
   - The private city cache contains exactly 100 validated JPEGs.
   - The active manifest contains no cemetery/grave-related entries.
   - The full-width bottom news ticker and top-right status/Settings controls

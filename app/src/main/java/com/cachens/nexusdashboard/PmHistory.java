@@ -39,7 +39,7 @@ final class PmHistory {
             Sample latest = samples.isEmpty() ? null : samples.get(samples.size() - 1);
             if (latest != null && missed <= MAX_MISSED_REFRESHES
                     && now - latest.timestamp <= RETAIN_STALE_MS) {
-                result.localPmSource = preferences.getString("source", "Sensor.Community Telep");
+                result.localPmSource = preferences.getString("source", "Sensor.Community");
                 result.localPmLocationId = storedSensorId;
                 result.localPmObservedAt = latest.timestamp;
                 result.localPm25 = latest.pm25;

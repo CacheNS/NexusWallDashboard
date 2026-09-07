@@ -439,16 +439,15 @@ final class DashboardView extends View {
     private String aqiSourceLabel() {
         StringBuilder result = new StringBuilder();
         if (weather.localPmSource != null && weather.localPmSource.length() > 0) {
-            result.append(AppText.get(context,
-                    "Sensor.Community Telep".equals(weather.localPmSource)
-                            ? "local_pm" : "local_pm_generic"));
+            result.append(AppText.get(context, "local_pm_generic"));
         }
-        if (weather.aqiSource != null && weather.aqiSource.startsWith("Novi Sad ")) {
+        if (weather.aqiSource != null && weather.aqiSource.length() > 0
+                && !"Open-Meteo".equals(weather.aqiSource)) {
             if (result.length() > 0) {
                 result.append(" · ");
             }
             result.append(AppText.get(context, "sepa")).append(' ')
-                    .append(weather.aqiSource.substring("Novi Sad ".length()));
+                    .append(weather.aqiSource);
         }
         return result.toString();
     }

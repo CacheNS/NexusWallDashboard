@@ -28,8 +28,13 @@ Language and location
 ---------------------
 The app starts in Serbian Latin. Tap "PODEŠAVANJA" / "SETTINGS" at the
 top-right to open Settings. Choose either the "Srpski" or "English" radio
-button, enter a city or postal code, and save. The initial location is Novi
-Sad. Leave the location field empty to use Android location services instead.
+button, enter a city or postal code, and save. Leave the location field empty
+to use Android location services instead; it is empty by default.
+Upgrades from builds that supplied an implicit location clear the saved
+location and location-derived caches once. Enable location services or enter
+a place in Settings again.
+When no cached weather or automatic-location fix is available, the app prompts
+for a manual place, Android Location Settings, or continued GPS waiting.
 
 Motion wake
 -----------
@@ -87,11 +92,12 @@ apps disabled during setup.
 Data source
 -----------
 Weather and fallback modeled air-quality data are retrieved from Open-Meteo.
-For Novi Sad, AQI coordinates are centered on Telep. The dashboard prefers a
-recent outdoor Sensor.Community monitor in the Telep area for indicative local
-PM2.5 and PM10 readings. It retains the nearest official Serbian Environmental
-Protection Agency (SEPA) station for regulatory measurements and gases, with
-Open-Meteo as the final fallback.
+The dashboard uses the GPS coordinates or geocoded manual location for every
+weather and air-quality provider. It prefers the nearest qualifying outdoor
+Sensor.Community monitor for indicative local PM2.5 and PM10 readings and
+retains the nearest official Serbian Environmental Protection Agency (SEPA)
+station for regulatory measurements and gases, with Open-Meteo as the final
+fallback.
 
 Community PM readings are shown immediately, but they affect European AQI only
 after the app has accumulated a sufficiently complete 24-hour average. This

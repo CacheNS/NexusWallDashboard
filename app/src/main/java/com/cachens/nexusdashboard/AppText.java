@@ -43,6 +43,11 @@ final class AppText {
         if ("finding_location".equals(key)) return sr ? "Tražim trenutnu lokaciju..." : "Finding current location...";
         if ("location_required".equals(key)) return sr ? "Potrebna je dozvola za lokaciju" : "Location permission is required";
         if ("enable_location".equals(key)) return sr ? "Uključite lokaciju ili unesite grad u podešavanjima" : "Enable Location or enter a city in settings";
+        if ("location_choice_title".equals(key)) return sr ? "Izaberite lokaciju" : "Choose location";
+        if ("location_choice_message".equals(key)) return sr ? "GPS još nema lokaciju. Sačekajte GPS, otvorite podešavanja lokacije ili unesite grad." : "GPS does not have a location yet. Wait for GPS, open Location settings, or enter a city.";
+        if ("enter_location".equals(key)) return sr ? "Unesi lokaciju" : "Enter location";
+        if ("location_settings".equals(key)) return sr ? "GPS podešavanja" : "Location settings";
+        if ("wait_gps".equals(key)) return sr ? "Sačekaj GPS" : "Wait for GPS";
         if ("updating".equals(key)) return sr ? "Ažuriram vreme i kvalitet vazduha..." : "Updating weather and air quality...";
         if ("updated".equals(key)) return sr ? "Ažurirano" : "Updated";
         if ("last_updated".equals(key)) return sr ? "Poslednje ažuriranje" : "Last updated";
@@ -62,7 +67,6 @@ final class AppText {
         if ("save".equals(key)) return sr ? "Sačuvaj" : "Save";
         if ("cancel".equals(key)) return sr ? "Otkaži" : "Cancel";
         if ("photos".equals(key)) return sr ? "IZABERI FOTOGRAFIJE" : "SELECT PHOTOS";
-        if ("local_pm".equals(key)) return sr ? "PM lokalni senzor Telep" : "PM local Telep sensor";
         if ("local_pm_generic".equals(key)) return sr ? "PM lokalni senzor" : "PM local sensor";
         if ("sepa".equals(key)) return "SEPA";
         return key;

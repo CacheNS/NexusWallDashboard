@@ -12,20 +12,18 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 final class SensorCommunityClient {
-    private static final long TELEP_LOCATION_ID = 80607L;
     private static final long MAX_READING_AGE_MS = 15L * 60L * 1000L;
     private static final double MAX_DISCOVERY_DISTANCE_KM = 5.0;
 
     private SensorCommunityClient() {
     }
 
-    static void applyNearest(WeatherSnapshot result, double officialDistanceKm, boolean preferTelep)
+    static void applyNearest(WeatherSnapshot result, double officialDistanceKm)
             throws IOException, JSONException {
         String url = String.format(Locale.US,
                 "https://data.sensor.community/airrohr/v1/filter/area=%.5f,%.5f,10",
                 result.latitude, result.longitude);
         JSONArray rows = new JSONArray(WeatherClient.readUrl(url));
-        Candidate preferred = null;
         Candidate nearest = null;
         double maximumDistance = Double.isNaN(officialDistanceKm)
                 ? MAX_DISCOVERY_DISTANCE_KM
@@ -57,10 +55,6 @@ final class SensorCommunityClient {
             }
             Candidate candidate = new Candidate(location.optLong("id"), pm25, pm10, observedAt,
                     distance, location.optInt("exact_location", 0) == 0);
-            if (preferTelep && candidate.locationId == TELEP_LOCATION_ID
-                    && (preferred == null || candidate.observedAt > preferred.observedAt)) {
-                preferred = candidate;
-            }
             if (nearest == null || candidate.distanceKm < nearest.distanceKm
                     || (candidate.locationId == nearest.locationId
                     && candidate.observedAt > nearest.observedAt)) {
@@ -68,7 +62,7 @@ final class SensorCommunityClient {
             }
         }
 
-        Candidate selected = preferred != null ? preferred : nearest;
+        Candidate selected = nearest;
         if (selected == null) {
             return;
         }
@@ -78,9 +72,7 @@ final class SensorCommunityClient {
         result.localPmObservedAt = selected.observedAt;
         result.localPmDistanceKm = selected.distanceKm;
         result.localPmApproximateLocation = selected.approximateLocation;
-        result.localPmSource = selected.locationId == TELEP_LOCATION_ID
-                ? "Sensor.Community Telep"
-                : "Sensor.Community";
+        result.localPmSource = "Sensor.Community";
         result.pm25 = selected.pm25;
         result.pm10 = selected.pm10;
     }

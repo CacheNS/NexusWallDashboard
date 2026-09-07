@@ -17,6 +17,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.text.InputType;
 import android.util.Log;
 import android.view.View;
@@ -48,6 +49,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private static final long WAKE_REFRESH_MIN_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long LOCATION_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long LOCATION_FRESHNESS_MS = 30L * 60L * 1000L;
+    private static final long LOCATION_PROMPT_DELAY_MS = 3000L;
     private static final long PHOTO_INTERVAL_MS = 10L * 60L * 1000L;
     private static final long NEWS_REFRESH_MS = 60L * 60L * 1000L;
     private static final long NETWORK_RETRY_MS = 60L * 1000L;
@@ -73,6 +75,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private long photoRotationDueAt;
     private long photoRotationRemainingMs = 1000L;
     private boolean dimmed;
+    private boolean locationPromptShown;
     private boolean permissionRequested;
     private boolean hasWeather;
     private boolean photoRotationScheduled;
@@ -156,9 +159,22 @@ public final class MainActivity extends Activity implements LocationListener, Da
         }
     };
 
+    private final Runnable locationPrompt = new Runnable() {
+        @Override
+        public void run() {
+            if (destroyed || !resumed || hasWeather || lastLocation != null
+                    || manualLocation().length() > 0 || locationPromptShown) {
+                return;
+            }
+            locationPromptShown = true;
+            showLocationChoice();
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        migrateLocationSelection();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -202,6 +218,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         handler.removeCallbacks(newsRefresh);
         handler.removeCallbacks(newsRetry);
         handler.removeCallbacks(idleCheck);
+        handler.removeCallbacks(locationPrompt);
         super.onPause();
         if (locationManager != null) {
             locationManager.removeUpdates(this);
@@ -220,6 +237,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         handler.removeCallbacks(weatherRetry);
         handler.removeCallbacks(weatherRefresh);
         handler.removeCallbacks(newsRetry);
+        handler.removeCallbacks(locationPrompt);
         weatherExecutor.shutdownNow();
         photoExecutor.shutdownNow();
         newsExecutor.shutdownNow();
@@ -261,7 +279,20 @@ public final class MainActivity extends Activity implements LocationListener, Da
     }
 
     private String manualLocation() {
-        return getSharedPreferences("settings", MODE_PRIVATE).getString("location_query", "Novi Sad").trim();
+        return getSharedPreferences("settings", MODE_PRIVATE).getString("location_query", "").trim();
+    }
+
+    private void migrateLocationSelection() {
+        SharedPreferences preferences = getSharedPreferences("settings", MODE_PRIVATE);
+        if (preferences.getBoolean("location_selection_migrated", false)) {
+            return;
+        }
+        preferences.edit()
+                .remove("location_query")
+                .putBoolean("location_selection_migrated", true)
+                .apply();
+        getSharedPreferences("weather", MODE_PRIVATE).edit().clear().apply();
+        getSharedPreferences("pm_history", MODE_PRIVATE).edit().clear().apply();
     }
 
     private void startLocationUpdates() {
@@ -298,6 +329,10 @@ public final class MainActivity extends Activity implements LocationListener, Da
         dashboardView.setStatus(enabled
                 ? AppText.get(this, "finding_location")
                 : AppText.get(this, "enable_location"));
+        if (lastLocation == null && !hasWeather) {
+            handler.removeCallbacks(locationPrompt);
+            handler.postDelayed(locationPrompt, LOCATION_PROMPT_DELAY_MS);
+        }
     }
 
     private static boolean isRecentLocation(Location location) {
@@ -592,6 +627,28 @@ public final class MainActivity extends Activity implements LocationListener, Da
     public void onStatusChanged(String provider, int status, Bundle extras) {
     }
 
+    private void showLocationChoice() {
+        new AlertDialog.Builder(this)
+                .setTitle(AppText.get(this, "location_choice_title"))
+                .setMessage(AppText.get(this, "location_choice_message"))
+                .setPositiveButton(AppText.get(this, "enter_location"),
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                onSettingsRequested();
+                            }
+                        })
+                .setNeutralButton(AppText.get(this, "location_settings"),
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+                            }
+                        })
+                .setNegativeButton(AppText.get(this, "wait_gps"), null)
+                .show();
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -607,7 +664,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         input.setSingleLine(true);
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         input.setHint(AppText.get(this, "settings_hint"));
-        input.setText(preferences.getString("location_query", "Novi Sad"));
+        input.setText(preferences.getString("location_query", ""));
         input.setSelectAllOnFocus(true);
         final RadioButton serbian = new RadioButton(this);
         serbian.setId(View.generateViewId());

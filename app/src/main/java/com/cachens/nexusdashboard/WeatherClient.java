@@ -18,8 +18,6 @@ import java.util.Locale;
 final class WeatherClient {
     private static final String SEPA_URL = "https://vazduh.sepa.gov.rs/?view=desktop";
     private static final double MAX_SEPA_DISTANCE_KM = 30.0;
-    private static final double TELEP_LATITUDE = 45.238;
-    private static final double TELEP_LONGITUDE = 19.803;
 
     private WeatherClient() {
     }
@@ -36,18 +34,12 @@ final class WeatherClient {
     private static WeatherSnapshot fetch(double latitude, double longitude, String locationName) throws Exception {
         String forecastCoordinates = String.format(Locale.US, "latitude=%.5f&longitude=%.5f",
                 latitude, longitude);
-        boolean noviSad = locationName.toLowerCase(Locale.US).contains("novi sad")
-                || distanceKm(latitude, longitude, TELEP_LATITUDE, TELEP_LONGITUDE) <= 3;
-        double airLatitude = noviSad ? TELEP_LATITUDE : latitude;
-        double airLongitude = noviSad ? TELEP_LONGITUDE : longitude;
-        String airCoordinates = String.format(Locale.US, "latitude=%.5f&longitude=%.5f",
-                airLatitude, airLongitude);
         String forecastUrl = "https://api.open-meteo.com/v1/forecast?" + forecastCoordinates
                 + "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m"
                 + "&daily=weather_code,temperature_2m_max,temperature_2m_min"
                 + "&temperature_unit=celsius&wind_speed_unit=kmh&timezone=auto&forecast_days="
                 + WeatherSnapshot.FORECAST_DAYS;
-        String airUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?" + airCoordinates
+        String airUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?" + forecastCoordinates
                 + "&current=european_aqi,pm10,pm2_5,nitrogen_dioxide,ozone&timezone=auto";
 
         JSONObject forecast = new JSONObject(readUrl(forecastUrl));
@@ -57,8 +49,8 @@ final class WeatherClient {
         JSONObject daily = forecast.getJSONObject("daily");
 
         WeatherSnapshot result = new WeatherSnapshot();
-        result.latitude = airLatitude;
-        result.longitude = airLongitude;
+        result.latitude = latitude;
+        result.longitude = longitude;
         result.locationName = locationName;
         result.fetchedAt = System.currentTimeMillis();
         result.temperature = current.optDouble("temperature_2m", Double.NaN);
@@ -91,7 +83,7 @@ final class WeatherClient {
         result.referencePm25 = result.pm25;
         result.referencePm10 = result.pm10;
         try {
-            SensorCommunityClient.applyNearest(result, result.aqiDistanceKm, noviSad);
+            SensorCommunityClient.applyNearest(result, result.aqiDistanceKm);
         } catch (IOException error) {
             Log.w("NexusDashboard", "Local PM data unavailable; using official/model PM", error);
         } catch (JSONException error) {
