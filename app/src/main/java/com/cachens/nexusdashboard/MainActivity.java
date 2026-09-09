@@ -463,7 +463,6 @@ public final class MainActivity extends Activity implements LocationListener, Da
                 }
                 weatherNeedsRetry = false;
                 lastWeatherFailureElapsed = 0;
-                PmHistory.apply(result, getSharedPreferences("pm_history", MODE_PRIVATE));
                 result.save(getSharedPreferences("weather", MODE_PRIVATE));
                 if (!resumed) {
                     return;

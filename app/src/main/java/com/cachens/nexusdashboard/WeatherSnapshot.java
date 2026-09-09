@@ -19,6 +19,11 @@ final class WeatherSnapshot {
     double ozone;
     String aqiSource;
     double aqiDistanceKm;
+    String aqiProvider = "";
+    boolean aqiAreaAverage;
+    long aqiObservedAt;
+    long aqiStationId;
+    double aqiRadiusMeters = Double.NaN;
     double referencePm25;
     double referencePm10;
     double localPm25;
@@ -41,6 +46,32 @@ final class WeatherSnapshot {
     final int[] dailyCode = new int[FORECAST_DAYS];
     final String[] dailyDate = new String[FORECAST_DAYS];
 
+    void applyAirCare(AirCareClient.Reading reading) {
+        aqi = pm25 = pm10 = nitrogenDioxide = ozone = Double.NaN;
+        aqiSource = "";
+        aqiDistanceKm = aqiRadiusMeters = Double.NaN;
+        aqiProvider = "AirCare";
+        aqiAreaAverage = false;
+        aqiObservedAt = aqiStationId = 0;
+        referencePm25 = referencePm10 = localPm25 = localPm10 = Double.NaN;
+        localPmSource = "";
+        localPmLocationId = localPmObservedAt = 0;
+        localPmDistanceKm = Double.NaN;
+        localPmApproximateLocation = localPmAqiReady = false;
+        if (reading == null) return;
+        aqi = reading.aqi;
+        pm25 = reading.pm25;
+        pm10 = reading.pm10;
+        nitrogenDioxide = reading.nitrogenDioxide;
+        ozone = reading.ozone;
+        aqiSource = reading.name;
+        aqiDistanceKm = reading.distanceKm;
+        aqiAreaAverage = reading.areaAverage;
+        aqiObservedAt = reading.observedAt;
+        aqiStationId = reading.stationId;
+        aqiRadiusMeters = reading.radiusMeters;
+    }
+
     void save(SharedPreferences preferences) {
         SharedPreferences.Editor editor = preferences.edit()
             .putString("provider", "Foreca")
@@ -62,6 +93,11 @@ final class WeatherSnapshot {
                 .putLong("ozone", Double.doubleToRawLongBits(ozone))
                 .putString("aqiSource", aqiSource)
                 .putLong("aqiDistanceKm", Double.doubleToRawLongBits(aqiDistanceKm))
+                .putString("aqiProvider", aqiProvider)
+                .putBoolean("aqiAreaAverage", aqiAreaAverage)
+                .putLong("aqiObservedAt", aqiObservedAt)
+                .putLong("aqiStationId", aqiStationId)
+                .putLong("aqiRadiusMeters", Double.doubleToRawLongBits(aqiRadiusMeters))
                 .putLong("referencePm25", Double.doubleToRawLongBits(referencePm25))
                 .putLong("referencePm10", Double.doubleToRawLongBits(referencePm10))
                 .putLong("localPm25", Double.doubleToRawLongBits(localPm25))
@@ -108,6 +144,11 @@ final class WeatherSnapshot {
         result.ozone = readDouble(preferences, "ozone");
         result.aqiSource = preferences.getString("aqiSource", "");
         result.aqiDistanceKm = readDouble(preferences, "aqiDistanceKm");
+        result.aqiProvider = preferences.getString("aqiProvider", "");
+        result.aqiAreaAverage = preferences.getBoolean("aqiAreaAverage", false);
+        result.aqiObservedAt = preferences.getLong("aqiObservedAt", 0);
+        result.aqiStationId = preferences.getLong("aqiStationId", 0);
+        result.aqiRadiusMeters = readDouble(preferences, "aqiRadiusMeters");
         result.referencePm25 = readDouble(preferences, "referencePm25");
         result.referencePm10 = readDouble(preferences, "referencePm10");
         result.localPm25 = readDouble(preferences, "localPm25");
@@ -118,6 +159,9 @@ final class WeatherSnapshot {
         result.localPmDistanceKm = readDouble(preferences, "localPmDistanceKm");
         result.localPmApproximateLocation = preferences.getBoolean("localPmApproximateLocation", false);
         result.localPmAqiReady = preferences.getBoolean("localPmAqiReady", false);
+        if (!"AirCare".equals(result.aqiProvider)) {
+            result.applyAirCare(null);
+        }
         result.latitude = readDouble(preferences, "latitude");
         result.longitude = readDouble(preferences, "longitude");
         result.locationName = preferences.getString("locationName", "");

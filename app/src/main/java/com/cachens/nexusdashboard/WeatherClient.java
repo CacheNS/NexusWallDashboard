@@ -16,8 +16,6 @@ import java.net.URLEncoder;
 
 final class WeatherClient {
     private static final String FORECA_URL = "https://weatherapi.foreca.net/api/v1/";
-    private static final String SEPA_URL = "https://vazduh.sepa.gov.rs/?view=desktop";
-    private static final double MAX_SEPA_DISTANCE_KM = 30.0;
 
     private WeatherClient() {
     }
@@ -50,104 +48,16 @@ final class WeatherClient {
             Log.w("NexusDashboard", "Foreca observations invalid; using coordinate estimate");
         }
 
+        result.applyAirCare(null);
         try {
-            applyNearestSepaStation(result);
+            JSONObject air = new JSONObject(readUrl(AirCareClient.address(latitude, longitude)));
+            result.applyAirCare(AirCareClient.parse(air, latitude, longitude, System.currentTimeMillis()));
         } catch (IOException error) {
-            Log.w("NexusDashboard", "SEPA station data unavailable", error);
+            Log.w("NexusDashboard", "AirCare data unavailable", error);
         } catch (JSONException error) {
-            Log.w("NexusDashboard", "SEPA station data invalid", error);
-        }
-        result.referencePm25 = result.pm25;
-        result.referencePm10 = result.pm10;
-        try {
-            SensorCommunityClient.applyNearest(result, result.aqiDistanceKm);
-        } catch (IOException error) {
-            Log.w("NexusDashboard", "Local PM data unavailable", error);
-        } catch (JSONException error) {
-            Log.w("NexusDashboard", "Local PM data invalid", error);
+            Log.w("NexusDashboard", "AirCare data invalid", error);
         }
         return result;
-    }
-
-    private static void applyNearestSepaStation(WeatherSnapshot result) throws IOException, JSONException {
-        String page = readUrl(SEPA_URL);
-        String marker = "window.STATIONS_FOR_MAP = ";
-        int start = page.indexOf(marker);
-        if (start < 0) {
-            throw new JSONException("SEPA station list not found");
-        }
-        start += marker.length();
-        int end = page.indexOf("];", start);
-        if (end < 0) {
-            throw new JSONException("SEPA station list is incomplete");
-        }
-
-        JSONArray stations = new JSONArray(page.substring(start, end + 1));
-        JSONObject nearest = null;
-        double nearestDistance = Double.MAX_VALUE;
-        for (int i = 0; i < stations.length(); i++) {
-            JSONObject station = stations.getJSONObject(i);
-            JSONArray components = station.optJSONArray("components");
-            if (!hasParticleMeasurement(components)) {
-                continue;
-            }
-            double distance = distanceKm(result.latitude, result.longitude,
-                    station.getDouble("lat"), station.getDouble("lng"));
-            if (distance < nearestDistance) {
-                nearest = station;
-                nearestDistance = distance;
-            }
-        }
-        if (nearest == null || nearestDistance > MAX_SEPA_DISTANCE_KM) {
-            return;
-        }
-
-        JSONArray components = nearest.getJSONArray("components");
-        double pm25 = componentValue(components, "PM2.5");
-        double pm10 = componentValue(components, "PM10");
-        double no2 = componentValue(components, "NO2");
-        double ozone = componentValue(components, "O3");
-        double sulphurDioxide = componentValue(components, "SO2");
-        double stationAqi = EuropeanAqi.fromPollutants(pm25, pm10, no2, ozone, sulphurDioxide);
-        if (Double.isNaN(stationAqi)) {
-            return;
-        }
-
-        result.aqi = stationAqi;
-        result.pm25 = pm25;
-        result.pm10 = pm10;
-        result.nitrogenDioxide = no2;
-        result.ozone = ozone;
-        result.aqiSource = nearest.getString("name");
-        result.aqiDistanceKm = nearestDistance;
-    }
-
-    private static boolean hasParticleMeasurement(JSONArray components) {
-        if (components == null) {
-            return false;
-        }
-        return !Double.isNaN(componentValue(components, "PM2.5"))
-                || !Double.isNaN(componentValue(components, "PM10"));
-    }
-
-    private static double componentValue(JSONArray components, String name) {
-        for (int i = 0; i < components.length(); i++) {
-            JSONObject component = components.optJSONObject(i);
-            if (component != null && name.equals(component.optString("name")) && !component.isNull("value")) {
-                return component.optDouble("value", Double.NaN);
-            }
-        }
-        return Double.NaN;
-    }
-
-    private static double distanceKm(double latitude1, double longitude1,
-                                     double latitude2, double longitude2) {
-        double latitudeDelta = Math.toRadians(latitude2 - latitude1);
-        double longitudeDelta = Math.toRadians(longitude2 - longitude1);
-        double a = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
-                + Math.cos(Math.toRadians(latitude1)) * Math.cos(Math.toRadians(latitude2))
-                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
-        return 6371.0 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     private static ResolvedLocation resolve(String query, String apiKey) throws Exception {

@@ -127,21 +127,42 @@ to fit. Precipitation is the estimated rate in mm/h; it is unavailable for
 station observations rather than mixing an estimate into measured conditions.
 Old-provider weather caches are not displayed after upgrade.
 
-The nearest qualifying outdoor Sensor.Community monitor supplies indicative
-local PM2.5 and PM10. The nearest official Serbian Environmental Protection
-Agency (SEPA) station supplies regulatory measurements and gases. Missing AQI
-and pollutants display as unavailable; failures do not discard fresh weather.
-Foreca's US-scale AQI is not substituted for the dashboard's European AQI.
+AirCare supplies all displayed air-quality measurements. The app sends the
+same full-precision latitude and longitude used for weather to AirCare's v4
+point endpoint, using radius=1 as its web map does. Of the returned stations,
+it selects the nearest named station within 30 km with a valid EU AQI and a
+measurement no more than two hours old (five minutes of future clock tolerance).
+Station distance is calculated from coordinates, not a city-name match.
+The source row displays only the station name, without a provider prefix.
+Proximity does not guarantee sensor accuracy; AirCare aggregates government,
+volunteer and other data sources, not only regulatory instruments.
 
-Community PM readings are shown immediately, but they affect European AQI only
-after the app has accumulated a sufficiently complete 24-hour average. This
-avoids treating a short low-cost-sensor sample as a regulatory AQI value.
+If no returned station qualifies, a fresh AirCare area average is used and
+labeled "Area average" (localized in Serbian). If neither qualifies, AQI is
+unavailable. Pollutants come from the same selected station or aggregate;
+missing values display as --, with no mixing of sources or local-PM overrides.
+The badge uses AirCare's supplied EU AQI (pid=7), never US AQI (pid=10) or a
+recalculation from particles. Colors and labels match the web map's inclusive
+thresholds: Good <=26, Moderate <=33, Poor <=66, Bad <=100, Hazardous >100.
+Zero is a valid reading. These thresholds were verified on 2026-09-09.
+
+AirCare failures do not discard fresh Foreca weather. Cached AirCare readings
+retain their station/aggregate identity and measurement timestamp for offline
+display. Earlier SEPA/local-PM cache values are cleared without discarding
+valid Foreca weather. The former community-PM history is no longer applied.
 Weather and air-quality data refresh every hour. Waking a dimmed display also
 requests fresh data when the previous request was at least 10 minutes earlier.
 
 https://www.foreca.com/
-https://vazduh.sepa.gov.rs/
-https://sensor.community/
+https://getaircare.com/
+https://mojvozduh.eu/web/
+
+AirCare currently accepts this HTTPS endpoint without credentials:
+https://getaircare.com/api/v4/api.php?requestType=point&lat={latitude}&lng={longitude}&radius=1&p=1
+The Foreca API key is never sent to AirCare. Public access does not establish
+a reuse license or guaranteed availability; rate limits and third-party terms
+remain unverified. Contact AirCare about supported API access before relying
+on this web-map endpoint for distribution: https://getaircare.com/solutions/
 
 Build
 -----
@@ -156,6 +177,9 @@ Validation:
   adb install -r app\build\outputs\apk\debug\app-debug.apk
   adb install -r app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
   adb shell am instrument -w com.cachens.nexusdashboard.test/android.test.InstrumentationTestRunner
+
+Optional live AirCare smoke test (uses the tablet's saved target coordinates):
+  adb shell am instrument -w -e class com.cachens.nexusdashboard.AirCareDeviceTest -e liveAirCare true com.cachens.nexusdashboard.test/android.test.InstrumentationTestRunner
 
 Device tests use isolated preferences and generate weather fixture screenshots
 under the test app's external files directory. Live Foreca responses require

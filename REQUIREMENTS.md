@@ -25,9 +25,9 @@ the requested behavior, constraints, or acceptance criteria change.
   row, above the weather card.
 - Render update timestamps using Android's configured 12/24-hour time format.
 - Do not display a permanent language toggle on the dashboard.
-- Use the same GPS coordinates or geocoded manual location for weather,
-  SEPA station selection, and Sensor.Community sensor
-  selection. Do not substitute a neighborhood or preferred sensor.
+- Use the same full-precision GPS coordinates, explicit manual coordinates,
+  or geocoded manual location for weather and AirCare. Do not substitute a
+  neighborhood, city center for a GPS fix, or preferred sensor.
 - Use Foreca for weather, location search, and five-day forecasts. Preserve GPS
   coordinate precision and send longitude,latitude to Foreca.
 - Prefer the nearest valid Foreca station observation within 30 km and two
@@ -46,27 +46,29 @@ the requested behavior, constraints, or acceptance criteria change.
   keys bundled in the APK are extractable, not securely concealed.
 - Show clear missing-key and rejected-key status messages.
 - Do not display cached weather from an earlier provider after upgrading.
-- Prefer the nearest recent valid outdoor Sensor.Community monitor that is
-  closer than the nearest available SEPA station for indicative PM2.5 and PM10.
-- Accept community readings only when they are outdoor, plausible, no more
-  than 15 minutes old, within 5 km, and closer than the selected SEPA station.
-- Use a persisted 24-hour community-PM average before allowing those readings
-  to affect the European AQI value.
-- Require at least 36 samples spanning at least 20 hours before promoting the
-  community PM average into AQI.
-- Do not promote community PM into AQI at humidity of 85% or higher or when it
-  diverges implausibly from the official particulate reference.
-- Preserve up to two missed local-sensor refreshes for source stability, but
-  do not reuse samples across different AQI targets or sensor IDs.
-- Retain the nearest official SEPA station for regulatory measurements and
-  gaseous pollutants. Leave unavailable measurements blank rather than mixing
-  a different AQI scale into European AQI.
-- Use this air-quality provider order:
-  1. Sensor.Community for local indicative PM2.5 and PM10.
-  2. SEPA for official particulate readings, AQI, NO2, O3, and SO2.
+- Use AirCare alone for AQI, PM2.5, PM10, NO2 and O3. Query its v4 point
+  endpoint with lat, lng, radius=1 and p=1, without Foreca credentials.
+- Select the nearest returned named station with valid coordinates, a finite
+  nonnegative EU AQI, distance at most 30 km, and data at most two hours old.
+  Allow at most five minutes of future clock skew. Break distance ties by
+  newer measurement, then lower station ID. Skip malformed candidates.
+- If no station qualifies, use a fresh valid AirCare area average; otherwise
+  show unavailable. Copy pollutants from the same selected object, never
+  fill station gaps from the aggregate, and ignore forecast-offset entries.
+- Display only the station name, without AirCare/SEPA prefixes. For aggregate
+  fallback display only localized "Area average". Preserve source-row placement
+  and truncate long station names rather than overlapping neighboring content.
+- Use AirCare's EU AQI (pid=7) directly, not US AQI or locally computed AQI.
+  Match its inclusive category boundaries: 26, 33, 66, 100, then hazardous.
+  Zero is valid; missing, negative and nonfinite readings stay unavailable.
+- Do not invoke SEPA, Sensor.Community or persisted community-PM overrides.
+- Persist AQI provider, source name/kind, station ID, observation time, distance
+  and aggregate radius. Clear pre-AirCare air-quality cache values while
+  retaining valid Foreca weather; retain AirCare provenance for offline display.
 - Air-quality fetch failures must not discard fresh Foreca weather.
-- Identify community and official sources separately without overstating the
-  precision of privacy-obfuscated sensor coordinates.
+- Do not describe AirCare stations as necessarily regulatory or imply that
+  coordinates alone guarantee measurement accuracy. Document the public
+  endpoint's unverified reuse terms, rate limits and stability.
 - Cache the last successful weather response for offline display.
 - If Wi-Fi or DNS is unavailable during startup, keep cached data visible and
   retry weather and news after one minute without showing raw network errors.
@@ -287,7 +289,7 @@ the requested behavior, constraints, or acceptance criteria change.
   - The app launches after reboot and remains the full-screen dashboard.
   - Weather, AQI, and both news sources load without runtime errors.
   - Weather and AQI providers use the active GPS or geocoded manual
-    coordinates, and community and official sources are identified separately.
+    coordinates, and AirCare station names or area-average labels are accurate.
   - The private city cache contains exactly 100 validated JPEGs.
   - The active manifest contains no cemetery/grave-related entries.
   - The full-width bottom news ticker and top-right status/Settings controls

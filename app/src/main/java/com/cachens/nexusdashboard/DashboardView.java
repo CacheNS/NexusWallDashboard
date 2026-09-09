@@ -244,9 +244,9 @@ final class DashboardView extends View {
 
         float badgeX = right - dp(82);
         float badgeY = top + dp(72);
-        paint.setColor(aqiColor(weather.aqi));
+        paint.setColor(AirCareAqi.color(weather.aqi));
         canvas.drawCircle(badgeX, badgeY, dp(48), paint);
-        drawText(canvas, "AQI", badgeX, badgeY - dp(4), sp(15), Color.WHITE, Paint.Align.CENTER, true);
+        drawText(canvas, "EU AQI", badgeX, badgeY - dp(4), sp(15), Color.WHITE, Paint.Align.CENTER, true);
         drawText(canvas, number(weather.aqi), badgeX, badgeY + dp(24), sp(23), Color.WHITE, Paint.Align.CENTER, true);
         drawText(canvas, AppText.aqiLabel(context, weather.aqi), badgeX, badgeY + dp(81), sp(14),
                 Color.WHITE, Paint.Align.CENTER, true);
@@ -261,8 +261,8 @@ final class DashboardView extends View {
         if (source.length() > 0) {
             paint.setTextSize(sp(10));
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
-                source = ellipsize(source, dp(150));
-                drawText(canvas, source, right - dp(150), top + dp(289), sp(10),
+            source = ellipsize(source, dp(205));
+            drawText(canvas, source, right - dp(205), top + dp(289), sp(10),
                     Color.argb(205, 255, 255, 255), Paint.Align.LEFT, false);
         }
     }
@@ -456,21 +456,9 @@ final class DashboardView extends View {
         return Double.isNaN(value) ? "--" : String.format(Locale.getDefault(), "%.0f", value);
     }
 
-    private String aqiSourceLabel() {
-        if (weather.aqiSource != null && weather.aqiSource.length() > 0) {
-            return AppText.get(context, "sepa") + " " + weather.aqiSource;
-        }
-        return "";
-    }
-
-    private static int aqiColor(double value) {
-        if (Double.isNaN(value)) return Color.rgb(100, 110, 120);
-        if (value < 20) return Color.rgb(42, 160, 92);
-        if (value < 40) return Color.rgb(85, 172, 72);
-        if (value < 60) return Color.rgb(226, 165, 48);
-        if (value < 80) return Color.rgb(224, 105, 48);
-        if (value < 100) return Color.rgb(194, 58, 68);
-        return Color.rgb(125, 48, 96);
+    String aqiSourceLabel() {
+        if (weather.aqiAreaAverage) return AppText.get(context, "area_average");
+        return safe(weather.aqiSource);
     }
 
     private float dp(float value) {

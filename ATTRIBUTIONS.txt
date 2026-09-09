@@ -30,3 +30,13 @@ Weather API: https://developer.foreca.com/
 Usage is subject to the account's Foreca terms and plan. The dashboard displays
 Foreca attribution with the weather data. Existing application-drawn weather
 icons are used; no Foreca preview images are bundled.
+
+Air-quality data
+================
+AirCare: https://getaircare.com/
+Web map: https://mojvozduh.eu/web/
+AirCare aggregates government, volunteer and other monitoring data sources.
+The dashboard displays the selected station name or a labeled area average.
+Public endpoint access is not a grant of reuse rights. Third-party terms,
+quotas and API stability remain unverified; supported API inquiries:
+https://getaircare.com/solutions/

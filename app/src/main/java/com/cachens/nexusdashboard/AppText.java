@@ -73,7 +73,7 @@ final class AppText {
         if ("save".equals(key)) return sr ? "Sačuvaj" : "Save";
         if ("cancel".equals(key)) return sr ? "Otkaži" : "Cancel";
         if ("photos".equals(key)) return sr ? "IZABERI FOTOGRAFIJE" : "SELECT PHOTOS";
-        if ("sepa".equals(key)) return "SEPA";
+        if ("area_average".equals(key)) return sr ? "Prosek područja" : "Area average";
         return key;
     }
 
@@ -113,13 +113,14 @@ final class AppText {
 
     static String aqiLabel(Context context, double value) {
         boolean sr = isSerbian(context);
-        if (Double.isNaN(value)) return sr ? "Nedostupno" : "Unavailable";
-        if (value < 20) return sr ? "Dobro" : "Good";
-        if (value < 40) return sr ? "Prihvatljivo" : "Fair";
-        if (value < 60) return sr ? "Umereno" : "Moderate";
-        if (value < 80) return sr ? "Loše" : "Poor";
-        if (value < 100) return sr ? "Vrlo loše" : "Very poor";
-        return sr ? "Izuzetno loše" : "Extremely poor";
+        switch (AirCareAqi.category(value)) {
+            case 0: return sr ? "Dobro" : "Good";
+            case 1: return sr ? "Umereno" : "Moderate";
+            case 2: return sr ? "Loše" : "Poor";
+            case 3: return sr ? "Vrlo loše" : "Bad";
+            case 4: return sr ? "Opasno" : "Hazardous";
+            default: return sr ? "Nedostupno" : "Unavailable";
+        }
     }
 
     static String formatDate(Context context, Calendar calendar) {
