@@ -28,7 +28,9 @@ Language and location
 ---------------------
 The app starts in Serbian Latin. Tap "PODEŠAVANJA" / "SETTINGS" at the
 top-right to open Settings. Choose either the "Srpski" or "English" radio
-button, enter a city or postal code, and save. Leave the location field empty
+button, enter a city or a latitude, longitude pair, and save. For example,
+45.25167, 19.83694 uses exact coordinates without a city lookup.
+Leave the location field empty
 to use Android location services instead; it is empty by default.
 Upgrades from builds that supplied an implicit location clear the saved
 location and location-derived caches once. Enable location services or enter
@@ -91,13 +93,45 @@ apps disabled during setup.
 
 Data source
 -----------
-Weather and fallback modeled air-quality data are retrieved from Open-Meteo.
-The dashboard uses the GPS coordinates or geocoded manual location for every
-weather and air-quality provider. It prefers the nearest qualifying outdoor
-Sensor.Community monitor for indicative local PM2.5 and PM10 readings and
-retains the nearest official Serbian Environmental Protection Agency (SEPA)
-station for regulatory measurements and gases, with Open-Meteo as the final
-fallback.
+Foreca provides weather and five-day forecasts. Create a Foreca API key at
+https://developer.foreca.com/my-api and enter it in the masked Foreca API key
+field in Settings. The personal, non-commercial Freemium plan is described at
+https://business.foreca.com/weather-api/pricing. Do not put keys in tracked files.
+The Settings override is stored in private app preferences and sent only to Foreca using an
+HTTPS Authorization header. App backup is disabled to keep the key out of
+backups. The app distinguishes missing/rejected keys from network failures.
+
+An optional default key can be bundled at build time. Set FORECA_API_KEY in
+the build environment, or add foreca.apiKey to the root local.properties file
+(already ignored by Git). A nonblank environment value takes precedence over
+local.properties. With neither configured, the build contains an empty default.
+Rebuild the APK after changing the default. A nonblank key saved in Settings
+overrides the bundled default; clearing that field restores the default.
+The Settings field shows only the saved override, never the bundled value.
+Saving unrelated settings therefore does not pin an old default as an override.
+Bundled keys are extractable from the APK: use a personal-use key, avoid sharing
+the APK publicly, and rotate the key if exposed. They are not secret storage.
+
+Automatic GPS/network fixes are passed to Foreca at their supplied precision,
+in the API's longitude,latitude order. Explicit coordinates bypass geocoding;
+city names use Foreca's location search. The same target coordinates select
+the air-quality sources. Foreca's coordinate-based current weather is an
+estimate, not a measurement at the tablet. The app requests up to six nearby
+stations and prefers the nearest valid observation within 30 km and no more
+than two hours old. Measured temperature, feels-like temperature, humidity,
+wind and condition come from that same observation. If no station qualifies
+or observations are unavailable, the coordinate estimate is labeled as such.
+The weather card identifies Foreca and the station (or estimate), with the
+weather timestamp separate from the download time. Station names may truncate
+to fit. Precipitation is the estimated rate in mm/h; it is unavailable for
+station observations rather than mixing an estimate into measured conditions.
+Old-provider weather caches are not displayed after upgrade.
+
+The nearest qualifying outdoor Sensor.Community monitor supplies indicative
+local PM2.5 and PM10. The nearest official Serbian Environmental Protection
+Agency (SEPA) station supplies regulatory measurements and gases. Missing AQI
+and pollutants display as unavailable; failures do not discard fresh weather.
+Foreca's US-scale AQI is not substituted for the dashboard's European AQI.
 
 Community PM readings are shown immediately, but they affect European AQI only
 after the app has accumulated a sufficiently complete 24-hour average. This
@@ -105,7 +139,7 @@ avoids treating a short low-cost-sensor sample as a regulatory AQI value.
 Weather and air-quality data refresh every hour. Waking a dimmed display also
 requests fresh data when the previous request was at least 10 minutes earlier.
 
-https://open-meteo.com/
+https://www.foreca.com/
 https://vazduh.sepa.gov.rs/
 https://sensor.community/
 
@@ -114,6 +148,21 @@ Build
 Set JAVA_HOME to JDK 17 and ANDROID_HOME to the Android SDK, then run:
 
   .\gradlew.bat assembleDebug
+
+Validation:
+
+  .\gradlew.bat testDebugUnitTest lintDebug
+  .\gradlew.bat assembleDebug assembleDebugAndroidTest
+  adb install -r app\build\outputs\apk\debug\app-debug.apk
+  adb install -r app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
+  adb shell am instrument -w com.cachens.nexusdashboard.test/android.test.InstrumentationTestRunner
+
+Device tests use isolated preferences and generate weather fixture screenshots
+under the test app's external files directory. Live Foreca responses require
+the user's API key; fixture tests do not verify account access or coverage.
+Use the in-place install/instrument commands above on a configured tablet:
+Gradle's connectedDebugAndroidTest cleanup can uninstall the dashboard and
+clear its private settings and caches.
 
 Install
 -------

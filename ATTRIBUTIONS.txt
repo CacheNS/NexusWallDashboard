@@ -22,3 +22,11 @@ image binaries are intentionally not distributed through this repository.
    Author: Tournasol7
    License: Creative Commons Attribution 4.0
    Source: https://commons.wikimedia.org/wiki/File:Dunavska_1_in_Novi_Sad_(1).jpg
+
+Weather data
+============
+Foreca: https://www.foreca.com/
+Weather API: https://developer.foreca.com/
+Usage is subject to the account's Foreca terms and plan. The dashboard displays
+Foreca attribution with the weather data. Existing application-drawn weather
+icons are used; no Foreca preview images are bundled.

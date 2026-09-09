@@ -55,19 +55,24 @@ final class AppText {
         if ("offline_cached".equals(key)) return sr ? "Nema mreže - prikazujem sačuvane podatke; pokušavam ponovo" : "Offline - showing cached data; retrying";
         if ("offline_retry".equals(key)) return sr ? "Nema mreže - pokušavam ponovo" : "Offline - retrying";
         if ("feels".equals(key)) return sr ? "Osećaj" : "Feels";
+        if ("foreca_api_key".equals(key)) return sr ? "Foreca API ključ" : "Foreca API key";
+        if ("foreca_api_key_override".equals(key)) return sr ? "Zamenski Foreca API ključ" : "Foreca API key override";
+        if ("foreca_key_required".equals(key)) return sr ? "Unesite Foreca API ključ u podešavanjima" : "Enter Foreca API key in settings";
+        if ("foreca_key_rejected".equals(key)) return sr ? "Proverite Foreca API ključ i pristup nalogu" : "Check Foreca API key and account access";
+        if ("estimate".equals(key)) return sr ? "Procena" : "Estimate";
+        if ("invalid_coordinates".equals(key)) return sr ? "Neispravne koordinate lokacije" : "Invalid location coordinates";
         if ("humidity".equals(key)) return sr ? "Vlažnost" : "Humidity";
         if ("wind".equals(key)) return sr ? "Vetar" : "Wind";
         if ("rain".equals(key)) return sr ? "Padavine" : "Rain";
         if ("today".equals(key)) return sr ? "Danas" : "Today";
         if ("settings".equals(key)) return sr ? "PODEŠAVANJA" : "SETTINGS";
         if ("settings_title".equals(key)) return sr ? "Podešavanja" : "Settings";
-        if ("settings_hint".equals(key)) return sr ? "Grad ili poštanski broj; prazno = GPS" : "City or postal code; blank = GPS";
+        if ("settings_hint".equals(key)) return sr ? "Grad ili širina, dužina; prazno = GPS" : "City or latitude, longitude; blank = GPS";
         if ("language".equals(key)) return sr ? "Jezik" : "Language";
         if ("screen_timeout".equals(key)) return sr ? "Zatamni ekran posle" : "Dim screen after";
         if ("save".equals(key)) return sr ? "Sačuvaj" : "Save";
         if ("cancel".equals(key)) return sr ? "Otkaži" : "Cancel";
         if ("photos".equals(key)) return sr ? "IZABERI FOTOGRAFIJE" : "SELECT PHOTOS";
-        if ("local_pm_generic".equals(key)) return sr ? "PM lokalni senzor" : "PM local sensor";
         if ("sepa".equals(key)) return "SEPA";
         return key;
     }
@@ -98,6 +103,7 @@ final class AppText {
         if (code == 45 || code == 48) return sr ? "Magla" : "Fog";
         if (code >= 51 && code <= 57) return sr ? "Rosulja" : "Drizzle";
         if (code >= 61 && code <= 67) return sr ? "Kiša" : "Rain";
+        if (code == 69) return sr ? "Susnežica" : "Sleet";
         if (code >= 71 && code <= 77) return sr ? "Sneg" : "Snow";
         if (code >= 80 && code <= 82) return sr ? "Pljuskovi" : "Showers";
         if (code >= 85 && code <= 86) return sr ? "Snežni pljuskovi" : "Snow showers";

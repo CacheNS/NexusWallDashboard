@@ -205,7 +205,9 @@ final class DashboardView extends View {
 
     private void drawWeather(Canvas canvas, float left, float top, float right) {
         float x = left + dp(24);
-        drawText(canvas, safe(weather.locationName), x, top + dp(24), sp(13),
+        paint.setTextSize(sp(13));
+        paint.setTypeface(android.graphics.Typeface.DEFAULT);
+        drawText(canvas, ellipsize(safe(weather.locationName), right - x - dp(24)), x, top + dp(24), sp(13),
                 Color.argb(215, 255, 255, 255), Paint.Align.LEFT, false);
         drawText(canvas, AppText.condition(context, weather.weatherCode), x, top + dp(51), sp(22),
                 Color.WHITE, Paint.Align.LEFT, true);
@@ -214,12 +216,30 @@ final class DashboardView extends View {
         drawText(canvas, AppText.get(context, "feels") + " " + number(weather.apparentTemperature) + " C",
                 x, top + dp(151), sp(17), Color.argb(225, 255, 255, 255), Paint.Align.LEFT, false);
 
+        String weatherSource = "Foreca - " + (safe(weather.weatherStation).length() == 0
+            ? AppText.get(context, "estimate") : weather.weatherStation
+            + String.format(java.util.Locale.US, " (%.1f km)", weather.weatherStationDistanceKm));
+        String weatherTime = "";
+        if (weather.weatherTime > 0) {
+            weatherTime = android.text.format.DateFormat.getDateFormat(context)
+                .format(new java.util.Date(weather.weatherTime)) + " "
+                + android.text.format.DateFormat.getTimeFormat(context)
+                .format(new java.util.Date(weather.weatherTime));
+        }
+        paint.setTextSize(sp(10));
+        paint.setTypeface(android.graphics.Typeface.DEFAULT);
+        float timeWidth = paint.measureText(weatherTime);
+        drawText(canvas, ellipsize(weatherSource, right - x - dp(32) - timeWidth), x, top + dp(174), sp(10),
+            Color.argb(215, 255, 255, 255), Paint.Align.LEFT, false);
+        drawText(canvas, weatherTime, right - dp(24), top + dp(174), sp(10),
+            Color.argb(215, 255, 255, 255), Paint.Align.RIGHT, false);
+
         float row = top + dp(198);
         drawText(canvas, AppText.get(context, "humidity") + "  " + number(weather.humidity) + "%",
                 x, row, sp(16), Color.WHITE, Paint.Align.LEFT, false);
         drawText(canvas, AppText.get(context, "wind") + "  " + number(weather.windSpeed) + " km/h",
                 x, row + dp(29), sp(16), Color.WHITE, Paint.Align.LEFT, false);
-        drawText(canvas, AppText.get(context, "rain") + "  " + number(weather.precipitation) + " mm",
+        drawText(canvas, AppText.get(context, "rain") + "  " + number(weather.precipitation) + " mm/h",
                 x, row + dp(58), sp(16), Color.WHITE, Paint.Align.LEFT, false);
 
         float badgeX = right - dp(82);
@@ -241,8 +261,8 @@ final class DashboardView extends View {
         if (source.length() > 0) {
             paint.setTextSize(sp(10));
             paint.setTypeface(android.graphics.Typeface.DEFAULT);
-            source = ellipsize(source, dp(205));
-            drawText(canvas, source, right - dp(205), top + dp(289), sp(10),
+                source = ellipsize(source, dp(150));
+                drawText(canvas, source, right - dp(150), top + dp(289), sp(10),
                     Color.argb(205, 255, 255, 255), Paint.Align.LEFT, false);
         }
     }
@@ -289,7 +309,7 @@ final class DashboardView extends View {
                 canvas.drawLine(x - size * 0.45f, y + i * size * 0.24f,
                         x + size * 0.45f, y + i * size * 0.24f, paint);
             }
-        } else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
+        } else if ((code >= 51 && code <= 69) || (code >= 80 && code <= 82)) {
             drawCloud(canvas, x, y - size * 0.12f, size * 0.82f);
             for (int i = -1; i <= 1; i++) {
                 float dropX = x + i * size * 0.28f;
@@ -437,19 +457,10 @@ final class DashboardView extends View {
     }
 
     private String aqiSourceLabel() {
-        StringBuilder result = new StringBuilder();
-        if (weather.localPmSource != null && weather.localPmSource.length() > 0) {
-            result.append(AppText.get(context, "local_pm_generic"));
+        if (weather.aqiSource != null && weather.aqiSource.length() > 0) {
+            return AppText.get(context, "sepa") + " " + weather.aqiSource;
         }
-        if (weather.aqiSource != null && weather.aqiSource.length() > 0
-                && !"Open-Meteo".equals(weather.aqiSource)) {
-            if (result.length() > 0) {
-                result.append(" · ");
-            }
-            result.append(AppText.get(context, "sepa")).append(' ')
-                    .append(weather.aqiSource);
-        }
-        return result.toString();
+        return "";
     }
 
     private static int aqiColor(double value) {

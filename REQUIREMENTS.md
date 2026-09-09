@@ -26,8 +26,26 @@ the requested behavior, constraints, or acceptance criteria change.
 - Render update timestamps using Android's configured 12/24-hour time format.
 - Do not display a permanent language toggle on the dashboard.
 - Use the same GPS coordinates or geocoded manual location for weather,
-  Open-Meteo air quality, SEPA station selection, and Sensor.Community sensor
+  SEPA station selection, and Sensor.Community sensor
   selection. Do not substitute a neighborhood or preferred sensor.
+- Use Foreca for weather, location search, and five-day forecasts. Preserve GPS
+  coordinate precision and send longitude,latitude to Foreca.
+- Prefer the nearest valid Foreca station observation within 30 km and two
+  hours; otherwise label the coordinate-based current weather as an estimate.
+- Keep measured temperature and feels-like values from the same observation.
+  Display station/source and weather timestamp separately from download time.
+- Show precipitation rate in mm/h for estimates and unavailable for station
+  observations, which do not expose the same rate field.
+- Configure the Foreca API key in a masked settings field. Store it privately,
+  disable backups, send it only to Foreca in an HTTPS Authorization header,
+  and never expose it in URLs, tracked source code, logs, or error messages.
+- Support an optional bundled default key from the build environment variable
+  FORECA_API_KEY, falling back to foreca.apiKey in ignored local.properties.
+  A nonblank Settings override takes precedence; clearing it uses the default.
+  Do not display or copy the default into the saved override. Document that
+  keys bundled in the APK are extractable, not securely concealed.
+- Show clear missing-key and rejected-key status messages.
+- Do not display cached weather from an earlier provider after upgrading.
 - Prefer the nearest recent valid outdoor Sensor.Community monitor that is
   closer than the nearest available SEPA station for indicative PM2.5 and PM10.
 - Accept community readings only when they are outdoor, plausible, no more
@@ -37,16 +55,16 @@ the requested behavior, constraints, or acceptance criteria change.
 - Require at least 36 samples spanning at least 20 hours before promoting the
   community PM average into AQI.
 - Do not promote community PM into AQI at humidity of 85% or higher or when it
-  diverges implausibly from the official/model particulate reference.
+  diverges implausibly from the official particulate reference.
 - Preserve up to two missed local-sensor refreshes for source stability, but
   do not reuse samples across different AQI targets or sensor IDs.
 - Retain the nearest official SEPA station for regulatory measurements and
-  gaseous pollutants, and use coordinate-based Open-Meteo data as the final
-  fallback.
-- Use this provider order:
+  gaseous pollutants. Leave unavailable measurements blank rather than mixing
+  a different AQI scale into European AQI.
+- Use this air-quality provider order:
   1. Sensor.Community for local indicative PM2.5 and PM10.
   2. SEPA for official particulate readings, AQI, NO2, O3, and SO2.
-  3. Open-Meteo for remaining modeled weather/AQI fallback values.
+- Air-quality fetch failures must not discard fresh Foreca weather.
 - Identify community and official sources separately without overstating the
   precision of privacy-obfuscated sensor coordinates.
 - Cache the last successful weather response for offline display.
@@ -74,7 +92,8 @@ the requested behavior, constraints, or acceptance criteria change.
 
 ## Location
 
-- Allow a city or postal code to be entered manually in the app.
+- Allow a city or an explicit latitude, longitude pair to be entered manually.
+- Explicit coordinates must bypass city search and retain their precision.
 - Default the manual-location field to empty so first run uses Android
   location services.
 - On upgrade from a build that supplied an implicit location, clear the saved

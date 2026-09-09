@@ -2,9 +2,24 @@ plugins {
     id "com.android.application"
 }
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def environmentForecaApiKey = System.getenv("FORECA_API_KEY")?.trim()
+def defaultForecaApiKey = (environmentForecaApiKey
+        ?: localProperties.getProperty("foreca.apiKey", "")).trim()
+
 android {
     namespace "com.cachens.nexusdashboard"
     compileSdk 35
+    useLibrary "android.test.runner"
+    useLibrary "android.test.base"
+
+    buildFeatures {
+        buildConfig true
+    }
 
     defaultConfig {
         applicationId "com.cachens.nexusdashboard"
@@ -12,6 +27,8 @@ android {
         targetSdk 35
         versionCode 1
         versionName "1.0"
+        testInstrumentationRunner "android.test.InstrumentationTestRunner"
+        buildConfigField "String", "FORECA_API_KEY", groovy.json.JsonOutput.toJson(defaultForecaApiKey)
     }
 
     buildTypes {
@@ -28,4 +45,6 @@ android {
 
 dependencies {
     implementation "org.conscrypt:conscrypt-android:2.5.3"
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "org.json:json:20240303"
 }

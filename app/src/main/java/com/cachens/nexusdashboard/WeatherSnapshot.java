@@ -33,6 +33,9 @@ final class WeatherSnapshot {
     double longitude;
     String locationName;
     long fetchedAt;
+    long weatherTime;
+    String weatherStation = "";
+    double weatherStationDistanceKm = Double.NaN;
     final double[] dailyHigh = new double[FORECAST_DAYS];
     final double[] dailyLow = new double[FORECAST_DAYS];
     final int[] dailyCode = new int[FORECAST_DAYS];
@@ -40,7 +43,11 @@ final class WeatherSnapshot {
 
     void save(SharedPreferences preferences) {
         SharedPreferences.Editor editor = preferences.edit()
+            .putString("provider", "Foreca")
                 .putLong("fetchedAt", fetchedAt)
+            .putLong("weatherTime", weatherTime)
+            .putString("weatherStation", weatherStation)
+            .putLong("weatherStationDistanceKm", Double.doubleToRawLongBits(weatherStationDistanceKm))
                 .putLong("temperature", Double.doubleToRawLongBits(temperature))
                 .putLong("apparentTemperature", Double.doubleToRawLongBits(apparentTemperature))
                 .putLong("humidity", Double.doubleToRawLongBits(humidity))
@@ -78,11 +85,15 @@ final class WeatherSnapshot {
     }
 
     static WeatherSnapshot load(SharedPreferences preferences) {
-        if (!preferences.contains("fetchedAt")) {
+        if (!preferences.contains("fetchedAt")
+            || !"Foreca".equals(preferences.getString("provider", ""))) {
             return null;
         }
         WeatherSnapshot result = new WeatherSnapshot();
         result.fetchedAt = preferences.getLong("fetchedAt", 0);
+        result.weatherTime = preferences.getLong("weatherTime", 0);
+        result.weatherStation = preferences.getString("weatherStation", "");
+        result.weatherStationDistanceKm = readDouble(preferences, "weatherStationDistanceKm");
         result.temperature = readDouble(preferences, "temperature");
         result.apparentTemperature = readDouble(preferences, "apparentTemperature");
         result.humidity = readDouble(preferences, "humidity");

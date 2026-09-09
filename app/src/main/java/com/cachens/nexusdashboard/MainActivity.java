@@ -31,6 +31,7 @@ import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Spinner;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.File;
@@ -283,6 +284,16 @@ public final class MainActivity extends Activity implements LocationListener, Da
         return getSharedPreferences("settings", MODE_PRIVATE).getString("location_query", "").trim();
     }
 
+    private String forecaApiKey() {
+        return selectForecaApiKey(getSharedPreferences("foreca", MODE_PRIVATE)
+                .getString("api_key", ""), BuildConfig.FORECA_API_KEY);
+    }
+
+    static String selectForecaApiKey(String overrideKey, String defaultKey) {
+        String configured = overrideKey == null ? "" : overrideKey.trim();
+        return configured.length() > 0 ? configured : defaultKey == null ? "" : defaultKey.trim();
+    }
+
     private void migrateLocationSelection() {
         SharedPreferences preferences = getSharedPreferences("settings", MODE_PRIVATE);
         if (preferences.getBoolean("location_selection_migrated", false)) {
@@ -327,7 +338,8 @@ public final class MainActivity extends Activity implements LocationListener, Da
             dashboardView.setStatus(AppText.get(this, "location_required"));
             return;
         }
-        dashboardView.setStatus(enabled
+        dashboardView.setStatus(forecaApiKey().length() == 0
+            ? AppText.get(this, "foreca_key_required") : enabled
                 ? AppText.get(this, "finding_location")
                 : AppText.get(this, "enable_location"));
         if (lastLocation == null && !hasWeather) {
@@ -369,11 +381,12 @@ public final class MainActivity extends Activity implements LocationListener, Da
         }
         dashboardView.setStatus(AppText.get(this, "updating"));
         final int requestRevision = weatherLocationRevision;
+        final String apiKey = forecaApiKey();
         weatherExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 try {
-                    showWeather(WeatherClient.fetch(location.getLatitude(), location.getLongitude()),
+                    showWeather(WeatherClient.fetch(location.getLatitude(), location.getLongitude(), apiKey),
                             requestRevision);
                 } catch (Exception error) {
                     showWeatherError(error, requestRevision);
@@ -391,11 +404,12 @@ public final class MainActivity extends Activity implements LocationListener, Da
         }
         dashboardView.setStatus(AppText.get(this, "updating"));
         final int requestRevision = weatherLocationRevision;
+        final String apiKey = forecaApiKey();
         weatherExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 try {
-                    showWeather(WeatherClient.fetchPlace(query), requestRevision);
+                    showWeather(WeatherClient.fetchPlace(query, apiKey), requestRevision);
                 } catch (Exception error) {
                     showWeatherError(error, requestRevision);
                 }
@@ -404,6 +418,10 @@ public final class MainActivity extends Activity implements LocationListener, Da
     }
 
     private boolean beginWeatherFetch(boolean force, String target) {
+        if (forecaApiKey().length() == 0) {
+            dashboardView.setStatus(AppText.get(this, "foreca_key_required"));
+            return false;
+        }
         boolean targetChanged = activeWeatherTarget.length() > 0
                 && !activeWeatherTarget.equals(target);
         if (targetChanged) {
@@ -491,7 +509,9 @@ public final class MainActivity extends Activity implements LocationListener, Da
                         SystemClock.elapsedRealtime(), lastWeatherFailureElapsed,
                         NETWORK_RETRY_MS));
                 dashboardView.setStatus(AppText.get(MainActivity.this,
-                        hasWeather ? "offline_cached" : "offline_retry"));
+                    error instanceof WeatherClient.AuthenticationException ? "foreca_key_rejected"
+                        : error instanceof IllegalArgumentException ? "invalid_coordinates"
+                        : hasWeather ? "offline_cached" : "offline_retry"));
             }
         });
     }
@@ -662,6 +682,15 @@ public final class MainActivity extends Activity implements LocationListener, Da
         input.setHint(AppText.get(this, "settings_hint"));
         input.setText(preferences.getString("location_query", ""));
         input.setSelectAllOnFocus(true);
+        final EditText apiKey = new EditText(this);
+        apiKey.setSingleLine(true);
+        apiKey.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        String apiKeyLabel = AppText.get(this, BuildConfig.FORECA_API_KEY.length() == 0
+            ? "foreca_api_key" : "foreca_api_key_override");
+        apiKey.setHint(apiKeyLabel);
+        apiKey.setContentDescription(apiKeyLabel);
+        apiKey.setSaveEnabled(false);
+        apiKey.setText(getSharedPreferences("foreca", MODE_PRIVATE).getString("api_key", ""));
         final RadioButton serbian = new RadioButton(this);
         serbian.setId(View.generateViewId());
         serbian.setText("Srpski");
@@ -693,16 +722,21 @@ public final class MainActivity extends Activity implements LocationListener, Da
         int padding = (int) (20 * getResources().getDisplayMetrics().density + 0.5f);
         settings.setPadding(padding, 0, padding, 0);
         settings.addView(input);
+        settings.addView(apiKey);
         settings.addView(language);
         settings.addView(timeoutLabel);
         settings.addView(timeout);
+        ScrollView settingsScroll = new ScrollView(this);
+        settingsScroll.addView(settings);
         new AlertDialog.Builder(this)
                 .setTitle(AppText.get(this, "settings_title"))
-                .setView(settings)
+            .setView(settingsScroll)
                 .setPositiveButton(AppText.get(this, "save"), new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         String query = input.getText().toString().trim();
+                        getSharedPreferences("foreca", MODE_PRIVATE).edit()
+                            .putString("api_key", apiKey.getText().toString().trim()).apply();
                         preferences.edit()
                                 .putString("location_query", query)
                                 .putBoolean("serbian",
