@@ -54,6 +54,7 @@ final class LegacyTls {
                     new CompositeTrustManager(systemTrust, bundledTrust)
             }, new SecureRandom());
             socketFactory = new Tls12SocketFactory(sslContext.getSocketFactory());
+            HttpsURLConnection.setDefaultSSLSocketFactory(socketFactory);
         } catch (Exception error) {
             throw new IllegalStateException("Unable to initialize TLS 1.2", error);
         }

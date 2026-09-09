@@ -74,6 +74,10 @@ final class AppText {
         if ("cancel".equals(key)) return sr ? "Otkaži" : "Cancel";
         if ("photos".equals(key)) return sr ? "IZABERI FOTOGRAFIJE" : "SELECT PHOTOS";
         if ("area_average".equals(key)) return sr ? "Prosek područja" : "Area average";
+        if ("radio_play".equals(key)) return sr ? "Pusti Blok Radio" : "Play Blok Radio";
+        if ("radio_stop".equals(key)) return sr ? "Zaustavi Blok Radio" : "Stop Blok Radio";
+        if ("radio_cancel".equals(key)) return sr ? "Otkaži povezivanje sa Blok Radiom" : "Cancel Blok Radio connection";
+        if ("radio_error".equals(key)) return sr ? "Blok Radio nije dostupan. Pokušajte ponovo." : "Blok Radio is unavailable. Please try again.";
         return key;
     }
 

@@ -74,6 +74,25 @@ the requested behavior, constraints, or acceptance criteria change.
   retry weather and news after one minute without showing raw network errors.
 - Run full-screen and remain usable as the tablet's Home application.
 
+## Blok Radio
+
+- Place a play-symbol control in the top-left corner, with a 48dp touch target.
+- Stream Blok Radio from https://stream.blokradio.com/hls/blok_radio/live.m3u8.
+- Tap Play to connect; display Stop while playing. Tapping again must stop
+  playback and release the stream, including while still connecting.
+- Indicate buffering without disabling cancellation. Return to Play with a
+  localized brief error when playback fails or buffers for 30 seconds.
+- Never autoplay on launch or after returning to the app. Keep playing during
+  dashboard dimming; stop on leaving the foreground, audio-focus interruption,
+  or headphone disconnection. Use the device's media-volume controls.
+- Hide the control while dimmed. The first touch gesture on the dimmed display
+  only wakes it and must not trigger playback or other dashboard actions.
+- Provide localized accessible play, stop, and cancel labels and a long-press hint.
+- Retain Android 4.4.2 compatibility. Pin Media3 to 1.3.1 and use its standard
+  HTTP transport with the existing validated legacy TLS trust configuration.
+- Verify live HLS playback on the Nexus 7; a desktop playlist fetch alone is
+  not proof of device TLS or audio-decoder compatibility.
+
 ## Refresh Scheduling
 
 - Refresh weather, AQI, and news once per hour while the activity is active.

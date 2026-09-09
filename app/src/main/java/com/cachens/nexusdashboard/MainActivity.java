@@ -22,17 +22,21 @@ import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.InputType;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Spinner;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -65,6 +69,9 @@ public final class MainActivity extends Activity implements LocationListener, Da
     private final ExecutorService newsExecutor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler();
     private DashboardView dashboardView;
+    private RadioControl radioControl;
+    private RadioController radioController;
+    private boolean wakeOnlyGesture;
     private LocationManager locationManager;
     private PhotoRepository photoRepository;
     private MotionDetector motionDetector;
@@ -174,7 +181,35 @@ public final class MainActivity extends Activity implements LocationListener, Da
 
         dashboardView = new DashboardView(this);
         dashboardView.setListener(this);
-        setContentView(dashboardView);
+        FrameLayout root = new FrameLayout(this);
+        root.addView(dashboardView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        radioControl = new RadioControl(this, new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                radioController.toggle();
+            }
+        });
+        float density = getResources().getDisplayMetrics().density;
+        FrameLayout.LayoutParams radioLayout = new FrameLayout.LayoutParams(
+                Math.round(48 * density), Math.round(48 * density), Gravity.TOP | Gravity.LEFT);
+        radioLayout.leftMargin = Math.round(16 * density);
+        radioLayout.topMargin = Math.round(8 * density);
+        root.addView(radioControl, radioLayout);
+        radioController = new RadioController(this, new RadioController.Listener() {
+            @Override
+            public void onStateChanged(RadioController.State state) {
+                radioControl.setState(state);
+            }
+
+            @Override
+            public void onError() {
+                Toast.makeText(MainActivity.this, AppText.get(MainActivity.this, "radio_error"),
+                        Toast.LENGTH_SHORT).show();
+            }
+        });
+        setVolumeControlStream(android.media.AudioManager.STREAM_MUSIC);
+        setContentView(root);
         enterImmersiveMode();
         LegacyTls.initialize(this);
 
@@ -214,6 +249,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     @Override
     protected void onPause() {
         resumed = false;
+        radioController.stop();
         dashboardView.setActive(false);
         unregisterReceiver(dateChangeReceiver);
         handler.removeCallbacks(weatherRefresh);
@@ -234,6 +270,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
     @Override
     protected void onDestroy() {
         destroyed = true;
+        radioController.release();
         handler.removeCallbacks(newsRefresh);
         handler.removeCallbacks(idleCheck);
         handler.removeCallbacks(weatherRetry);
@@ -854,6 +891,22 @@ public final class MainActivity extends Activity implements LocationListener, Da
     }
 
     @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            wakeOnlyGesture = dimmed;
+        }
+        if (wakeOnlyGesture) {
+            wakeDisplay();
+            if (event.getActionMasked() == MotionEvent.ACTION_UP
+                    || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                wakeOnlyGesture = false;
+            }
+            return true;
+        }
+        return super.dispatchTouchEvent(event);
+    }
+
+    @Override
     public void onUserInteraction() {
         super.onUserInteraction();
         wakeDisplay();
@@ -875,6 +928,7 @@ public final class MainActivity extends Activity implements LocationListener, Da
         dimmed = true;
         handler.removeCallbacks(idleCheck);
         dashboardView.setDimmed(true);
+        radioControl.setVisibility(View.INVISIBLE);
         WindowManager.LayoutParams parameters = getWindow().getAttributes();
         parameters.screenBrightness = 0.01f;
         getWindow().setAttributes(parameters);
@@ -885,6 +939,8 @@ public final class MainActivity extends Activity implements LocationListener, Da
             return;
         }
         lastInteractionAt = SystemClock.uptimeMillis();
+        radioControl.setState(radioController.getState());
+        radioControl.setVisibility(View.VISIBLE);
         if (!dimmed) {
             scheduleIdleTimeout();
             return;
